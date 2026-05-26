@@ -8,6 +8,29 @@ All notable changes to ForensicKit follow [Conventional Commits](https://www.con
 
 ---
 
+## [Phase 4] — 2026-05-26
+
+### Added
+- `Sources/ForensicKit/Services/FileSystemService.swift` — REQ-401–405: actor-based directory snapshot stream (recursive and non-recursive); metadata collection: size, 4-digit octal permissions, modification/creation dates (ISO8601), fileType; secure hex-encoded SHA-256 hash via CryptoKit with stream-based chunking; graceful traversal error handling (skips unreadable elements) and path resolution via `realpath(3)` to avoid symlink discrepancies.
+- `Tests/ForensicKitTests/FileSystemServiceTests.swift` — 9 tests: state guards, recursive/non-recursive traversal, metadata verification, SHA-256 check, large file chunked hashing, nonexistent directory error, file instead of directory target error, and traversal error resilience.
+
+### Changed
+- `ForensicKit.version` bumped to `0.4.0-phase4`
+
+### Spec Delta
+- `specs/phase-4.yaml` status: `draft` → `verified`
+- REQ-401, REQ-402, REQ-403, REQ-404, REQ-405: ALL PASS
+
+### Commit
+```
+feat(phase-4): implement FileSystemService file system forensics per spec
+```
+
+### Test Results
+```
+✔ Test run with 73 tests passed after 0.019 seconds.
+```
+
 ## [Phase 2] — 2026-05-26
 
 ### Added
