@@ -7,10 +7,11 @@
 // SPEC: REQ-201 — ProcessTreeService     (Services/ProcessTreeService.swift)
 // SPEC: REQ-203 — MemoryLogger           (Services/MemoryLogger.swift)
 // SPEC: REQ-301 — NetworkMonitorService  (Services/NetworkMonitorService.swift)
+// SPEC: REQ-401 — FileSystemService      (Services/FileSystemService.swift)
 
 /// ForensicKit — macOS forensic data collection framework.
 /// Built with Swift Package Manager. No Xcode required.
 public enum ForensicKit {
     /// Semantic version of the library.
-    public static let version = "0.3.0-phase3"
+    public static let version = "0.4.0-phase4"
 }
