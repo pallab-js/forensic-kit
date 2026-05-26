@@ -84,3 +84,28 @@ feat(phase-1): core models, protocols, and errors per spec
 ```
 chore(phase-0): spm scaffold + spec tooling
 ```
+
+---
+
+## [Phase 3] — 2026-05-26
+
+### Added
+- `Sources/ForensicKit/Services/NetworkMonitorService.swift` — REQ-301–305: actor-based `getifaddrs(3)` snapshot; classifies AF_INET (IPv4 via `inet_ntop`), AF_INET6 (IPv6 via `inet_ntop`), AF_LINK (MAC from `sockaddr_dl`), other; `defer freeifaddrs` in all paths
+- `Tests/ForensicKitTests/NetworkMonitorServiceTests.swift` — 14 tests: state guards, source/kind/metadata/severity, lo0 loopback, IPv4 format, 127.0.0.1, family value set, boolean strings, repeated snapshot (memory-safety), stream completion
+
+### Changed
+- `ForensicKit.version` bumped to `0.3.0-phase3`
+
+### Spec Delta
+- `specs/phase-3.yaml` status: `draft` → `verified`
+- REQ-301, REQ-302, REQ-303, REQ-304, REQ-305: ALL PASS
+
+### Commit
+```
+feat(phase-3): NetworkMonitorService via getifaddrs per spec
+```
+
+### Test Results
+```
+✔ Test run with 64 tests passed after 0.016 seconds.
+```
