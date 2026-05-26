@@ -1,0 +1,59 @@
+id: phase-1
+title: Core Models & Protocols
+status: active
+
+requirements:
+  - id: REQ-101
+    desc: |
+      ForensicEvent must be a Sendable, Codable, Identifiable value type (struct)
+      with fields: id (UUID), timestamp (Date), severity (Severity), source (Source),
+      and payload (EventPayload). All nested types must be Sendable and Codable.
+    priority: must
+    test: unit — encode/decode roundtrip + field assertions
+
+  - id: REQ-102
+    desc: |
+      CollectionService must be a Sendable protocol declaring:
+        - var id: String { get }
+        - func stream() -> AsyncThrowingStream<ForensicEvent, Error>
+        - func start() async throws
+        - func stop() async
+      No default implementations permitted in this phase.
+    priority: must
+    test: unit — mock conformance compiles and streams synthetic events
+
+  - id: REQ-103
+    desc: |
+      ForensicError must be a Sendable enum conforming to Error with cases:
+        - permissionDenied(String)
+        - collectionFailed(String)
+        - memoryLimitExceeded(usedBytes: Int, limitBytes: Int)
+        - serviceNotRunning(serviceId: String)
+        - timeout(after: Duration)
+        - unsupportedPlatform(String)
+    priority: must
+    test: unit — throw/catch each case, verify descriptions
+
+  - id: REQ-104
+    desc: |
+      EventPayload must be a Sendable, Codable struct with:
+        - kind: PayloadKind (enum: process | memory | network | filesystem | system)
+        - metadata: [String: String] (extensible key-value bag)
+      All five PayloadKind cases must be present.
+    priority: must
+    test: unit — all five kinds round-trip through JSON
+
+  - id: REQ-105
+    desc: |
+      All public types (ForensicEvent, EventPayload, CollectionService, ForensicError)
+      must satisfy Swift 6 strict concurrency (Sendable). The library target is
+      compiled with .enableExperimentalFeature("StrictConcurrency").
+    priority: must
+    test: swift build with zero concurrency warnings
+
+acceptance_criteria:
+  - "`swift build` succeeds with zero errors and zero warnings"
+  - "`swift test` — all Phase 1 tests green"
+  - "spec-verify.sh reports ALL PASS for REQ-101 through REQ-105"
+  - "Coverage >= 80% on all new ForensicKit source files"
+  - "Zero network calls"
