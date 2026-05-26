@@ -1,0 +1,65 @@
+id: phase-4
+title: File System Forensics
+status: active
+
+requirements:
+  - id: REQ-401
+    desc: |
+      FileSystemService must conform to CollectionService and be implemented
+      as a Swift actor. It must snapshot a target directory, supporting both
+      recursive and non-recursive search, and emit one ForensicEvent per file
+      as a finite AsyncThrowingStream.
+    priority: must
+    test: integration — stream emits events for files in target directory
+
+  - id: REQ-402
+    desc: |
+      Each ForensicEvent emitted by FileSystemService must carry:
+        - source: .filesystem
+        - payload.kind: .filesystem
+        - metadata["path"]: absolute path of the file/directory
+        - metadata["sizeBytes"]: file size in bytes as a decimal string
+        - metadata["permissions"]: octal representation of permissions (e.g., "0644")
+        - metadata["modificationDate"]: ISO8601 date string
+        - metadata["creationDate"]: ISO8601 date string, or "-" if unavailable
+        - metadata["fileType"]: "regular" | "directory" | "symbolicLink" | "other"
+      Severity must be .info for successful snapshots.
+    priority: must
+    test: unit — verify all required metadata keys on each emitted event
+
+  - id: REQ-403
+    desc: |
+      For regular files, FileSystemService must compute a hex-encoded SHA-256
+      hash using CryptoKit and store it in metadata["sha256"]. For large files,
+      it must use stream-based hashing in chunks to prevent high memory usage.
+      Directories, symlinks, and unreadable files must not have a hash computed
+      (metadata["sha256"] set to "-").
+    priority: must
+    test: unit — check correct SHA-256 for a known file; large file chunking logic
+
+  - id: REQ-404
+    desc: |
+      FileSystemService must handle errors gracefully:
+        - Throw ForensicError.permissionDenied or ForensicError.collectionFailed
+          if the target directory does not exist or cannot be read at start.
+        - Skip unreadable files or subdirectories during traversal instead of
+          aborting the entire stream. If a file is skipped or unreadable, a warning
+          event or proper logging should occur, but the stream must continue.
+    priority: must
+    test: integration — target dir not found throws; unreadable file does not abort stream
+
+  - id: REQ-405
+    desc: |
+      FileSystemService must satisfy Swift 6 strict concurrency (Sendable compliance).
+      All mutable state must be actor-isolated. Stream builder block must be safe
+      and not raise concurrency data race compiler warnings.
+    priority: must
+    test: swift build — zero concurrency warnings or errors
+
+acceptance_criteria:
+  - "`swift build` succeeds with zero errors and zero warnings"
+  - "`swift test` — all Phase 4 tests green"
+  - "spec-verify.sh reports ALL PASS for REQ-401 through REQ-405"
+  - "Recursion correctly traverses subdirectories"
+  - "SHA-256 is computed correctly using CryptoKit"
+  - "Large files are hashed in chunks without excessive memory spikes"
