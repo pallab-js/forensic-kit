@@ -1,0 +1,48 @@
+id: "00-project-overview"
+title: "ForensicKit — Project Overview"
+status: active
+
+description: |
+  ForensicKit is a macOS forensic data collection framework and CLI tool.
+  It is built entirely with Swift Package Manager (no Xcode required).
+  The tool collects system forensic artefacts: process trees, memory snapshots,
+  network connections, and file system metadata.
+
+environment:
+  swift: "6.3+"
+  platform: "macOS 13+ (Ventura)"
+  build_tool: "Swift Package Manager"
+  test_framework: "Swift Testing (@Test)"
+
+phases:
+  - id: phase-0
+    title: SPM Scaffold & Tooling Setup
+    branch: feat/phase-0
+    status: active
+  - id: phase-1
+    title: Core Models & Protocols
+    branch: feat/phase-1
+    status: draft
+  - id: phase-2
+    title: Core Collection Services
+    branch: feat/phase-2
+    status: draft
+  - id: phase-3
+    title: Network Monitoring
+    branch: feat/phase-3
+    status: draft
+  - id: phase-4
+    title: File System Forensics
+    branch: feat/phase-4
+    status: draft
+  - id: phase-5
+    title: CLI Interface & Reporting
+    branch: feat/phase-5
+    status: draft
+
+constraints:
+  - "Zero network calls during forensic collection"
+  - "No Xcode dependency — SPM only"
+  - "All AI-generated code must carry // SPEC: REQ-XXX traceability tags"
+  - "Coverage >= 80% per phase"
+  - "Memory ceiling: 1.5GB during collection"
