@@ -8,10 +8,12 @@
 // SPEC: REQ-203 — MemoryLogger           (Services/MemoryLogger.swift)
 // SPEC: REQ-301 — NetworkMonitorService  (Services/NetworkMonitorService.swift)
 // SPEC: REQ-401 — FileSystemService      (Services/FileSystemService.swift)
+// SPEC: REQ-502 — CollectionOrchestrator (Services/CollectionOrchestrator.swift)
+// SPEC: REQ-503 — ForensicReporter      (Reporting/ForensicReporter.swift)
 
 /// ForensicKit — macOS forensic data collection framework.
 /// Built with Swift Package Manager. No Xcode required.
 public enum ForensicKit {
     /// Semantic version of the library.
-    public static let version = "0.4.0-phase4"
+    public static let version = "0.5.0-phase5"
 }
