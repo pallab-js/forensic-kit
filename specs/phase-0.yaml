@@ -1,0 +1,19 @@
+id: phase-0
+title: SPM Scaffold & Tooling Setup
+status: verified
+
+requirements:
+  - id: REQ-000
+    desc: |
+      Project must be initialised as a Swift Package Manager (SPM) package with
+      targets: ForensicKit (library), ForensicKitCLI (executable), ForensicKitTests (test).
+      No Xcode project file is required or generated.
+    priority: must
+    test: "swift build && swift test"
+
+acceptance_criteria:
+  - "`swift build` succeeds with zero errors on Swift 6.x, macOS 13+"
+  - "`swift test` passes the scaffold smoke test"
+  - "`git log --oneline` shows conventional commits"
+  - "`specs/tools/spec-verify.sh` exits 0"
+  - "`CHANGELOG.md` contains Phase 0 entry"
