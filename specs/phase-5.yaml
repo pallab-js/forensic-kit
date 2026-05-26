@@ -1,0 +1,63 @@
+id: phase-5
+title: CLI Interface & Reporting
+status: active
+
+requirements:
+  - id: REQ-501
+    desc: |
+      The ForensicKitCLI executable target must integrate swift-argument-parser
+      to provide a beautiful CLI interface. It must support:
+        - --services, -s: comma-separated list of services (process, memory, network, filesystem), defaulting to all
+        - --output-format, -f: "json" | "markdown", defaulting to "markdown"
+        - --output-path, -o: optional output file path; prints to stdout if omitted
+        - --fs-target, -p: directory path to scan for file system forensics, defaulting to "."
+        - --fs-recursive, -r: boolean recursive directory scanning, defaulting to true
+        - --memory-limit, -m: memory limit ceiling in bytes, defaulting to 1610612736 (1.5GiB)
+        - --memory-interval: memory logging interval in ms, defaulting to 50
+        - --memory-duration: duration in seconds to run memory monitoring, defaulting to 1.0
+    priority: must
+    test: unit — verify CLI argument parser parses all options correctly
+
+  - id: REQ-502
+    desc: |
+      CLI must implement an orchestrator that runs all selected services in parallel
+      using Swift Concurrency. It must invoke start(), aggregate the events emitted
+      by their streams, manage task cancellation, and call stop() for all services.
+      MemoryLogger must be stopped after the specified --memory-duration.
+    priority: must
+    test: integration — orchestrator runs services, collects events, finishes gracefully
+
+  - id: REQ-503
+    desc: |
+      CLI must support JSON and Markdown report generation:
+        - JSON format: serialized array of ForensicEvent objects with ISO8601 date formatting.
+        - Markdown format: beautiful human-readable layout featuring header metadata
+          (date, version, OS), a summary table of event counts by source, and structured
+          sub-sections for Processes, Memory, Network, and File System findings.
+    priority: must
+    test: unit — verify JSON serialization and Markdown formatting structures
+
+  - id: REQ-504
+    desc: |
+      CLI must handle reports, output, and errors gracefully:
+        - If --output-path is provided, write report to file; otherwise print to stdout.
+        - Catch and format all ForensicError and standard errors, printing clear user-facing
+          error messages to stderr and exiting with a non-zero exit code (e.g., exit code 1).
+    priority: must
+    test: integration — invalid directory paths or writing to unwriteable files exits with 1
+
+  - id: REQ-505
+    desc: |
+      CLI and Orchestrator must satisfy Swift 6 strict concurrency (Sendable compliance).
+      Provide comprehensive E2E tests executing the CLI programmatically with simulated
+      arguments to verify correct output and exit codes.
+    priority: must
+    test: E2E — full CLI invocation runs successfully and exits with code 0 under standard conditions
+
+acceptance_criteria:
+  - "`swift build` succeeds with zero errors and zero warnings"
+  - "`swift test` — all Phase 5 tests green"
+  - "spec-verify.sh reports ALL PASS for REQ-501 through REQ-505"
+  - "CLI parses all arguments correctly with standard help message"
+  - "Markdown report features a vibrant summary table and structured blocks for all services"
+  - "JSON output is fully valid against the ForensicEvent schema"
