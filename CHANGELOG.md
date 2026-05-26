@@ -8,6 +8,31 @@ All notable changes to ForensicKit follow [Conventional Commits](https://www.con
 
 ---
 
+## [Phase 5] — 2026-05-26
+
+### Added
+- `Sources/ForensicKit/Services/CollectionOrchestrator.swift` — REQ-502: actor-based system coordinator that manages all selected collection services in parallel, aggregates event streams concurrently via `TaskGroup`, manages task cancellations, and automatically stops the memory logger.
+- `Sources/ForensicKit/Reporting/ForensicReporter.swift` — REQ-503: structured formatter supporting valid JSON output (pretty-printed, sorted keys, ISO8601 date encoding) and a vibrant, premium Markdown report featuring header metadata, collection stats tables, alert logs, and segmented sections.
+- `Sources/ForensicKitCLI/main.swift` — REQ-501/504: thin command-line target using `swift-argument-parser` with full parameters (`--services`, `--output-format`, `--output-path`, `--fs-target`, `--no-fs-recursive`, `--memory-limit`, `--memory-interval`, `--memory-duration`); drains stdout/stderr cleanly and formats collection errors to stderr with exit code 1.
+- `Tests/ForensicKitTests/CLITests.swift` — REQ-505: E2E and integration test suite executing parallel runs, verifying Markdown/JSON structures, and spawning the compiled CLI programmatically to test exit codes and help commands.
+
+### Changed
+- `ForensicKit.version` bumped to `0.5.0-phase5`
+
+### Spec Delta
+- `specs/phase-5.yaml` status: `draft` → `verified`
+- REQ-501, REQ-502, REQ-503, REQ-504, REQ-505: ALL PASS
+
+### Commit
+```
+feat(phase-5): implement CLI and reporting per spec
+```
+
+### Test Results
+```
+✔ Test run with 79 tests passed after 0.185 seconds.
+```
+
 ## [Phase 4] — 2026-05-26
 
 ### Added
