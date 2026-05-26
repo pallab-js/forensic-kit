@@ -94,19 +94,24 @@ extension EventPayload {
         return EventPayload(kind: .memory, metadata: meta)
     }
 
-    /// Creates a network-event payload.
+    /// Creates a network-interface event payload.
+    /// Matches the schema emitted by `NetworkMonitorService`.
     public static func network(
-        localAddress: String,
-        remoteAddress: String,
-        state: String,
-        proto: String,
+        interface: String,
+        family: String,
+        address: String,
+        isLoopback: Bool,
+        isUp: Bool,
+        flags: String,
         extra: [String: String] = [:]
     ) -> EventPayload {
         var meta: [String: String] = [
-            "localAddress": localAddress,
-            "remoteAddress": remoteAddress,
-            "state": state,
-            "proto": proto
+            "interface": interface,
+            "family": family,
+            "address": address,
+            "isLoopback": isLoopback ? "true" : "false",
+            "isUp": isUp ? "true" : "false",
+            "flags": flags
         ]
         meta.merge(extra) { _, new in new }
         return EventPayload(kind: .network, metadata: meta)

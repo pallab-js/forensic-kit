@@ -105,7 +105,7 @@ public final class AppState {
 
     public internal(set) var isRunning = false
     public internal(set) var events: [ForensicEvent] = []
-    public internal(set) var errorMessage: String?
+    public internal(set) var errorMessages: [String] = []
 
     public var hasResults: Bool { !events.isEmpty }
 
@@ -181,7 +181,7 @@ public final class AppState {
 
     public func clearResults() {
         events = []
-        errorMessage = nil
+        errorMessages = []
         selectedPanel = .collection
     }
 
@@ -191,14 +191,14 @@ public final class AppState {
     public func runCollection() async {
         guard !isRunning else { return }
         isRunning = true
-        errorMessage = nil
+        errorMessages = []
         events = []
 
         let services = buildServices()
         Self.log.debug("collection started with \(services.count) service(s)")
 
         guard !services.isEmpty else {
-            errorMessage = "Select at least one service."
+            errorMessages.append("Select at least one service.")
             isRunning = false
             return
         }
@@ -207,7 +207,7 @@ public final class AppState {
             do {
                 try await service.start()
             } catch {
-                errorMessage = "Failed to start \(service.id): \(error.localizedDescription)"
+                errorMessages.append("Failed to start \(service.id): \(error.localizedDescription)")
                 await stopAll(services)
                 isRunning = false
                 return
@@ -223,15 +223,17 @@ public final class AppState {
                             await MainActor.run { self.events.append(event) }
                         }
                     } catch {
-                        await MainActor.run { self.errorMessage = error.localizedDescription }
+                        await MainActor.run {
+                            self.errorMessages.append("\(service.id): \(error.localizedDescription)")
+                        }
                     }
                 }
             }
 
-            if services.contains(where: { $0.id == "memory-logger" }) {
+            if services.contains(where: { $0.id == MemoryLogger.serviceID }) {
                 group.addTask {
                     try? await Task.sleep(for: .seconds(memDuration))
-                    if let mem = services.first(where: { $0.id == "memory-logger" }) {
+                    if let mem = services.first(where: { $0.id == MemoryLogger.serviceID }) {
                         await mem.stop()
                     }
                 }

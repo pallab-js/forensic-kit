@@ -8,9 +8,23 @@ import Foundation
 // SPEC: REQ-503
 public struct ForensicReporter: Sendable {
 
+    /// When `true` (default), Markdown reports use emoji glyphs in headings.
+    /// Set to `false` for pure-text output compatible with all terminals and CI logs.
+    public let useEmojis: Bool
+
     // MARK: - Init
 
-    public init() {}
+    /// Creates a new reporter.
+    /// - Parameter useEmojis: Whether Markdown reports include emoji headers. Default `true`.
+    public init(useEmojis: Bool = true) {
+        self.useEmojis = useEmojis
+    }
+
+    // MARK: - Emoji Helpers
+
+    private func emoji(_ e: String, plain: String) -> String {
+        useEmojis ? e : plain
+    }
 
     // MARK: - JSON Generation
 
@@ -51,12 +65,12 @@ public struct ForensicReporter: Sendable {
         let criticalCount = events.filter { $0.severity == .critical }.count
 
         var md = ""
-        md += "# 🔍 Forensic Audit Report\n\n"
+        md += "# \(emoji("🔍 ", plain: ""))Forensic Audit Report\n\n"
         md += "> **Generated on:** `\(timestamp)`\n"
         md += "> **Engine Version:** `ForensicKit v\(ForensicKit.version)`\n"
         md += "> **Target Audited:** `\(targetScanned)`\n\n"
 
-        md += "## 📊 Collection Summary\n\n"
+        md += "## \(emoji("📊 ", plain: ""))Collection Summary\n\n"
         md += "| Subsystem | Event Count | Warnings / Critical |\n"
         md += "| :--- | :---: | :---: |\n"
         md += "| **Process Tree** | \(processEvents.count) | \(processEvents.filter { $0.severity != .info }.count) |\n"
@@ -66,7 +80,7 @@ public struct ForensicReporter: Sendable {
         md += "| **Total Observations** | **\(totalCount)** | **\(warningCount + criticalCount)** |\n\n"
 
         if warningCount + criticalCount > 0 {
-            md += "### ⚠️ Indicators of Anomaly / Alert Log\n\n"
+            md += "### \(emoji("⚠️ ", plain: ""))Indicators of Anomaly / Alert Log\n\n"
             md += "| Subsystem | Severity | Details |\n"
             md += "| :--- | :---: | :--- |\n"
             let alertEvents = events.filter { $0.severity != .info }
@@ -78,7 +92,7 @@ public struct ForensicReporter: Sendable {
         }
 
         // 1. Process tree findings
-        md += "## 🪵 Subsystem Audits\n\n"
+        md += "## \(emoji("🪵 ", plain: ""))Subsystem Audits\n\n"
         md += "### 1. Process tree (Darwin sysctl)\n\n"
         if processEvents.isEmpty {
             md += "*No process tree observations recorded.*\n\n"

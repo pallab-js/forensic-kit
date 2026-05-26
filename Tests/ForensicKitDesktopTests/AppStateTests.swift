@@ -61,13 +61,13 @@ final class AppStateTests {
     func clearResults() {
         let state = AppState()
         state.events = [ForensicEvent(severity: .info, source: .system, payload: .system(event: "test"))]
-        state.errorMessage = "something went wrong"
+        state.errorMessages = ["something went wrong"]
         state.selectedPanel = .processes
 
         state.clearResults()
 
         #expect(state.events.isEmpty)
-        #expect(state.errorMessage == nil)
+        #expect(state.errorMessages.isEmpty)
         #expect(state.selectedPanel == .collection)
     }
 
@@ -192,12 +192,12 @@ final class CSVExportTests {
             ForensicEvent(
                 severity: .info,
                 source: .network,
-                payload: .network(localAddress: "127.0.0.1", remoteAddress: "", state: "established", proto: "tcp")
+                payload: .network(interface: "en0", family: "IPv4", address: "127.0.0.1", isLoopback: true, isUp: true, flags: "8049")
             ),
             ForensicEvent(
                 severity: .info,
                 source: .network,
-                payload: .network(localAddress: "0.0.0.0", remoteAddress: "", state: "listen", proto: "tcp")
+                payload: .network(interface: "en1", family: "IPv4", address: "0.0.0.0", isLoopback: false, isUp: false, flags: "8049")
             ),
         ]
         let csv = AppState.exportCSV(events: events)
@@ -237,7 +237,7 @@ final class EventFilterTests {
         let state = AppState()
         state.events = [
             ForensicEvent(severity: .info, source: .process, payload: .process(pid: 1, name: "launchd")),
-            ForensicEvent(severity: .info, source: .network, payload: .network(localAddress: "a", remoteAddress: "b", state: "c", proto: "tcp")),
+            ForensicEvent(severity: .info, source: .network, payload: .network(interface: "en0", family: "IPv4", address: "10.0.0.1", isLoopback: false, isUp: true, flags: "8049")),
             ForensicEvent(severity: .info, source: .process, payload: .process(pid: 2, name: "kernel_task")),
         ]
         #expect(state.processEvents.count == 2)

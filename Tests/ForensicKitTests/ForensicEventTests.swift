@@ -56,10 +56,8 @@ func testForensicEventCodableRoundtrip() throws {
         severity:  .critical,
         source:    .network,
         payload:   .network(
-            localAddress:  "127.0.0.1:9000",
-            remoteAddress: "93.184.216.34:443",
-            state:         "ESTABLISHED",
-            proto:         "TCP"
+            interface: "en0", family: "IPv4", address: "127.0.0.1",
+            isLoopback: false, isUp: true, flags: "8049"
         )
     )
 
@@ -75,7 +73,9 @@ func testForensicEventCodableRoundtrip() throws {
     #expect(decoded.severity                   == original.severity)
     #expect(decoded.source                     == original.source)
     #expect(decoded.payload.kind               == original.payload.kind)
-    #expect(decoded.payload.metadata["state"]  == "ESTABLISHED")
+    #expect(decoded.payload.metadata["interface"]  == "en0")
+    #expect(decoded.payload.metadata["family"]     == "IPv4")
+    #expect(decoded.payload.metadata["address"]    == "127.0.0.1")
 }
 
 // MARK: - Hashable

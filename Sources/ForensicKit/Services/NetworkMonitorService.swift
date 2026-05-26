@@ -132,18 +132,14 @@ public actor NetworkMonitorService: CollectionService {
         let isUp       = (flags & UInt32(IFF_UP)) != 0
 
         guard let addr = ifa.pointee.ifa_addr else {
-            // No address — still emit a record so the interface is visible
             return ForensicEvent(
                 severity: .info,
                 source: .network,
-                payload: EventPayload(kind: .network, metadata: [
-                    "interface":  name,
-                    "family":     "none",
-                    "address":    "-",
-                    "isLoopback": isLoopback ? "true" : "false",
-                    "isUp":       isUp ? "true" : "false",
-                    "flags":      String(flags, radix: 16, uppercase: false)
-                ])
+                payload: .network(
+                    interface: name, family: "none", address: "-",
+                    isLoopback: isLoopback, isUp: isUp,
+                    flags: String(flags, radix: 16, uppercase: false)
+                )
             )
         }
 
@@ -174,18 +170,14 @@ public actor NetworkMonitorService: CollectionService {
             address = "-"
         }
 
-        // SPEC: REQ-302 — build event with all required metadata keys
         return ForensicEvent(
             severity: .info,
             source: .network,
-            payload: EventPayload(kind: .network, metadata: [
-                "interface":  name,
-                "family":     family,
-                "address":    address,
-                "isLoopback": isLoopback ? "true" : "false",
-                "isUp":       isUp ? "true" : "false",
-                "flags":      String(flags, radix: 16, uppercase: false)
-            ])
+            payload: .network(
+                interface: name, family: family, address: address,
+                isLoopback: isLoopback, isUp: isUp,
+                flags: String(flags, radix: 16, uppercase: false)
+            )
         )
     }
 

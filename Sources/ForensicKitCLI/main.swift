@@ -129,7 +129,15 @@ struct ForensicKitCLI: AsyncParsableCommand {
             // 3. Orchestrate concurrent collection
             // SPEC: REQ-502 — orchestrate in parallel
             let orchestrator = CollectionOrchestrator(services: collectionServices)
-            let events = try await orchestrator.run(memoryDuration: memoryDuration)
+            let events = await orchestrator.run(memoryDuration: memoryDuration)
+            let errors = await orchestrator.serviceErrors
+            if !errors.isEmpty {
+                let stderr = FileHandle.standardError
+                for err in errors {
+                    let msg = "⚠️ Service warning: \(err)\n"
+                    if let data = msg.data(using: .utf8) { stderr.write(data) }
+                }
+            }
 
             // 4. Generate report
             // SPEC: REQ-503 — JSON & Markdown formatting
@@ -147,6 +155,10 @@ struct ForensicKitCLI: AsyncParsableCommand {
             // SPEC: REQ-504 — stdout vs file path writing
             if let path = outputPath {
                 let writeURL = URL(fileURLWithPath: path)
+                var isDir: ObjCBool = false
+                if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
+                    throw ValidationError("Output path is a directory: \(path)")
+                }
                 try report.write(to: writeURL, atomically: true, encoding: .utf8)
             } else {
                 print(report)

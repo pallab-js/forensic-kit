@@ -22,23 +22,23 @@ phases:
   - id: phase-1
     title: Core Models & Protocols
     branch: feat/phase-1
-    status: draft
+    status: active
   - id: phase-2
     title: Core Collection Services
     branch: feat/phase-2
-    status: draft
+    status: active
   - id: phase-3
     title: Network Monitoring
     branch: feat/phase-3
-    status: draft
+    status: active
   - id: phase-4
     title: File System Forensics
     branch: feat/phase-4
-    status: draft
+    status: active
   - id: phase-5
     title: CLI Interface & Reporting
     branch: feat/phase-5
-    status: draft
+    status: active
 
 constraints:
   - "Zero network calls during forensic collection"

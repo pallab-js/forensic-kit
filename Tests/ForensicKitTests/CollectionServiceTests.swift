@@ -72,7 +72,7 @@ func testStreamEmitsAllEvents() async throws {
     let events = [
         ForensicEvent(severity: .info,    source: .process, payload: .process(pid: 1, name: "launchd")),
         ForensicEvent(severity: .warning, source: .memory,  payload: .memory(rssBytes: 1_000_000, vmBytes: 2_000_000)),
-        ForensicEvent(severity: .critical,source: .network, payload: .network(localAddress: "127.0.0.1:80", remoteAddress: "1.1.1.1:443", state: "ESTABLISHED", proto: "TCP"))
+        ForensicEvent(severity: .critical,source: .network, payload: .network(interface: "en0", family: "IPv4", address: "127.0.0.1", isLoopback: false, isUp: true, flags: "8049"))
     ]
 
     let svc = MockCollectionService(events: events)
@@ -126,12 +126,14 @@ func testMemoryPayload() {
 
 @Test("EventPayload.network factory populates metadata correctly")
 func testNetworkPayload() {
-    let p = EventPayload.network(localAddress: "0.0.0.0:8080", remoteAddress: "8.8.8.8:53", state: "SYN_SENT", proto: "UDP")
+    let p = EventPayload.network(interface: "en0", family: "IPv4", address: "192.168.1.1", isLoopback: false, isUp: true, flags: "8049")
     #expect(p.kind == .network)
-    #expect(p.metadata["localAddress"]  == "0.0.0.0:8080")
-    #expect(p.metadata["remoteAddress"] == "8.8.8.8:53")
-    #expect(p.metadata["state"]         == "SYN_SENT")
-    #expect(p.metadata["proto"]         == "UDP")
+    #expect(p.metadata["interface"]  == "en0")
+    #expect(p.metadata["family"]     == "IPv4")
+    #expect(p.metadata["address"]    == "192.168.1.1")
+    #expect(p.metadata["isLoopback"] == "false")
+    #expect(p.metadata["isUp"]       == "true")
+    #expect(p.metadata["flags"]      == "8049")
 }
 
 @Test("EventPayload.filesystem factory populates metadata correctly")
@@ -168,7 +170,7 @@ func testEventPayloadCodableAllKinds() throws {
     let payloads: [EventPayload] = [
         .process(pid: 1, name: "launchd"),
         .memory(rssBytes: 100, vmBytes: 200),
-        .network(localAddress: "lo0", remoteAddress: "lo0", state: "LISTEN", proto: "TCP"),
+        .network(interface: "lo0", family: "IPv4", address: "127.0.0.1", isLoopback: true, isUp: true, flags: "8049"),
         .filesystem(path: "/etc"),
         .system(event: "login")
     ]

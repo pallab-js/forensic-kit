@@ -11,6 +11,14 @@ import Foundation
 // MARK: - Binary Locator Helper
 
 private func locateCLIBinary() -> URL? {
+    // Allow override via environment variable (useful in CI / custom build dirs)
+    if let envPath = ProcessInfo.processInfo.environment["FORENSICKIT_BINARY_PATH"] {
+        let url = URL(fileURLWithPath: envPath)
+        if FileManager.default.isExecutableFile(atPath: url.path) {
+            return url
+        }
+    }
+
     let fm = FileManager.default
     let buildDir = URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent(".build")
 
@@ -44,7 +52,7 @@ func testOrchestratorExecution() async throws {
     ]
 
     let orchestrator = CollectionOrchestrator(services: services)
-    let events = try await orchestrator.run(memoryDuration: 0.1)
+    let events = await orchestrator.run(memoryDuration: 0.1)
 
     // SPEC: REQ-502 — Must successfully aggregate events
     #expect(events.isEmpty == false)
@@ -132,9 +140,11 @@ func testReporterMarkdown() {
 @Test("E2E: CLI help options are valid and exit with 0")
 func testCLIHelp() throws {
     guard let binaryURL = locateCLIBinary() else {
-        Issue.record("Failed to locate compiled CLI binary.")
+        Issue.record("Failed to locate compiled CLI binary. Set FORENSICKIT_BINARY_PATH env var or build the project first.")
         return
     }
+    #expect(FileManager.default.isExecutableFile(atPath: binaryURL.path),
+            "CLI binary not found at \(binaryURL.path)")
 
     let process = Process()
     process.executableURL = binaryURL
@@ -159,9 +169,11 @@ func testCLIHelp() throws {
 @Test("E2E: CLI rejects invalid output formats or services and exits with 1")
 func testCLIInvalidFormat() throws {
     guard let binaryURL = locateCLIBinary() else {
-        Issue.record("Failed to locate compiled CLI binary.")
+        Issue.record("Failed to locate compiled CLI binary. Set FORENSICKIT_BINARY_PATH env var or build the project first.")
         return
     }
+    #expect(FileManager.default.isExecutableFile(atPath: binaryURL.path),
+            "CLI binary not found at \(binaryURL.path)")
 
     let process = Process()
     process.executableURL = binaryURL
@@ -187,9 +199,11 @@ func testCLIInvalidFormat() throws {
 @Test("E2E: CLI successfully runs process and network collection and generates JSON")
 func testCLISuccessfulRun() throws {
     guard let binaryURL = locateCLIBinary() else {
-        Issue.record("Failed to locate compiled CLI binary.")
+        Issue.record("Failed to locate compiled CLI binary. Set FORENSICKIT_BINARY_PATH env var or build the project first.")
         return
     }
+    #expect(FileManager.default.isExecutableFile(atPath: binaryURL.path),
+            "CLI binary not found at \(binaryURL.path)")
 
     let process = Process()
     process.executableURL = binaryURL

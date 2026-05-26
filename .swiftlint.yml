@@ -4,11 +4,12 @@ disabled_rules:
   - type_body_length
   - file_length
   - identifier_name
-  - force_cast
-  - force_try
 opt_in_rules:
   - empty_count
   - sorted_imports
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - trailing_closure
 included:
   - Sources
   - Tests

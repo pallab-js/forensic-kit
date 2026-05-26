@@ -74,6 +74,18 @@ public actor ProcessTreeService: CollectionService {
 
     // MARK: - Snapshot Implementation
 
+    /// Returns the full executable path for a PID via `proc_pidpath`.
+    /// Returns `nil` if the path cannot be resolved (permission denied, zombie, etc.).
+    // SPEC: REQ-202 — executable path via proc_pidpath
+    internal static func executablePath(for pid: Int32) -> String? {
+        // PROC_PIDPATHINFO_MAXSIZE = 4096 on macOS
+        let bufSize = 4096
+        var buffer = [CChar](repeating: 0, count: bufSize)
+        let ret = proc_pidpath(pid, &buffer, UInt32(bufSize))
+        guard ret > 0 else { return nil }
+        return String(cString: buffer)
+    }
+
     /// Enumerates all processes using `sysctl(CTL_KERN, KERN_PROC, KERN_PROC_ALL)`.
     ///
     /// This is a `static` (non-isolated) function so it can be called from both
@@ -112,9 +124,6 @@ public actor ProcessTreeService: CollectionService {
             let ppid = Int(kproc.kp_eproc.e_ppid)
 
             // kp_proc.p_comm is a C fixed-length char array (MAXCOMLEN + 1 = 17 bytes)
-            // Extract via pointer rebind. Compute size before taking inout pointer
-            // to avoid overlapping-access exclusivity violation.
-            // SPEC: REQ-202 — name from p_comm
             var comm = kproc.kp_proc.p_comm
             let commSize = MemoryLayout.size(ofValue: comm)
             let name: String = withUnsafeMutablePointer(to: &comm) { ptr in
@@ -126,11 +135,14 @@ public actor ProcessTreeService: CollectionService {
             // Filter out zombie/empty entries (pid 0 with no name)
             guard pid > 0 || !name.isEmpty else { return nil }
 
+            // SPEC: REQ-202 — full executable path via proc_pidpath
+            let execPath = executablePath(for: Int32(pid))
+
             // SPEC: REQ-202 — ForensicEvent with source=.process, required metadata
             return ForensicEvent(
                 severity: .info,
                 source: .process,
-                payload: .process(pid: pid, name: name.isEmpty ? "(unknown)" : name, parentPid: ppid)
+                payload: .process(pid: pid, name: name.isEmpty ? "(unknown)" : name, parentPid: ppid, path: execPath)
             )
         }
     }

@@ -36,6 +36,9 @@ public actor MemoryLogger: CollectionService {
 
     // MARK: - Constants (nonisolated)
 
+    /// Stable type-level identifier for programmatic lookups.
+    /// Prefer this over string literal comparisons.
+    public nonisolated static let serviceID = "memory-logger"
     public nonisolated let id = "memory-logger"
 
     // Immutable configuration — accessible nonisolated in Swift 6
@@ -51,7 +54,6 @@ public actor MemoryLogger: CollectionService {
     // MARK: - Actor-Isolated State
 
     private var isRunning = false
-    private var activeTask: Task<Void, Never>?
 
     // MARK: - Init
 
@@ -82,17 +84,7 @@ public actor MemoryLogger: CollectionService {
 
     public func stop() async {
         isRunning = false
-        activeTask?.cancel()
-        activeTask = nil
         Self.log.debug("stopped")
-    }
-
-    // MARK: - Actor-Isolated Helpers
-
-    private func storeTask(_ task: Task<Void, Never>) {
-        activeTask = task
-        // Edge case: if stop() was called between start() and storeTask()
-        if !isRunning { task.cancel() }
     }
 
     // MARK: - CollectionService Streaming
@@ -100,9 +92,10 @@ public actor MemoryLogger: CollectionService {
     /// Returns a continuous stream of memory snapshot events.
     ///
     /// The stream runs until `stop()` is called or the memory limit is exceeded.
+    /// No unstructured `Task` is created — the loop reads actor-isolated `isRunning`
+    /// directly, eliminating the TOCTOU race between store-and-cancel.
     // SPEC: REQ-203 — continuous AsyncThrowingStream
     public nonisolated func stream() -> AsyncThrowingStream<ForensicEvent, Error> {
-        // Capture immutable let properties nonisolated (Swift 6 — safe for actor lets)
         let provider = self.memoryProvider
         let interval = self.checkInterval
         let limit    = self.limitBytes
@@ -110,7 +103,6 @@ public actor MemoryLogger: CollectionService {
 
         return AsyncThrowingStream { continuation in
             let loopTask = Task {
-                // Validate service state via actor-isolated access
                 guard await self.isRunning else {
                     continuation.finish(
                         throwing: ForensicError.serviceNotRunning(serviceId: svcId)
@@ -118,13 +110,15 @@ public actor MemoryLogger: CollectionService {
                     return
                 }
 
-                // ── Main monitoring loop ─────────────────────────────────────
-                // SPEC: REQ-203 — poll at interval
                 while !Task.isCancelled {
+                    guard await self.isRunning else {
+                        continuation.finish()
+                        return
+                    }
+
                     do {
                         let (rss, vm) = try provider()
 
-                        // SPEC: REQ-204 — limit check
                         if rss > limit {
                             continuation.finish(
                                 throwing: ForensicError.memoryLimitExceeded(
@@ -136,7 +130,6 @@ public actor MemoryLogger: CollectionService {
                             return
                         }
 
-                        // SPEC: REQ-204 — .warning at 90% threshold
                         let severity: ForensicEvent.Severity =
                             rss > Int(Double(limit) * 0.9) ? .warning : .info
 
@@ -148,7 +141,6 @@ public actor MemoryLogger: CollectionService {
                             )
                         )
 
-                        // SPEC: REQ-203 — checkpoint every interval (default 50ms)
                         try await Task.sleep(for: interval)
 
                     } catch is CancellationError {
@@ -167,11 +159,7 @@ public actor MemoryLogger: CollectionService {
                 continuation.finish()
             }
 
-            // Wire stream cancellation → task cancellation
             continuation.onTermination = { _ in loopTask.cancel() }
-
-            // Store task reference for stop() to cancel
-            Task { await self.storeTask(loopTask) }
         }
     }
 
@@ -179,7 +167,6 @@ public actor MemoryLogger: CollectionService {
 
     private func markStopped() {
         isRunning = false
-        activeTask = nil
     }
 
     // MARK: - Default Memory Provider

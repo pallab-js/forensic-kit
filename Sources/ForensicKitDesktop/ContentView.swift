@@ -297,14 +297,16 @@ struct CollectionSettingsView: View {
             .disabled(state.isRunning || state.activeServiceCount == 0)
             .controlSize(.large)
 
-            if let err = state.errorMessage {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                    Text(err).foregroundStyle(.red).font(.callout)
+            if !state.errorMessages.isEmpty {
+                ForEach(state.errorMessages, id: \.self) { err in
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                        Text(err).foregroundStyle(.red).font(.callout)
+                    }
+                    .padding(8)
+                    .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
                 }
-                .padding(8)
-                .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
             }
 
             if state.isRunning {
