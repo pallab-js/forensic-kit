@@ -1,0 +1,63 @@
+id: phase-2
+title: Core Collection Services
+status: active
+
+requirements:
+  - id: REQ-201
+    desc: |
+      ProcessTreeService must conform to CollectionService and be implemented
+      as a Swift actor. It must enumerate all running macOS processes using
+      sysctl(CTL_KERN, KERN_PROC, KERN_PROC_ALL) and emit one ForensicEvent
+      per process as a finite AsyncThrowingStream (stream finishes after
+      the full snapshot is emitted).
+    priority: must
+    test: integration — stream must include pid=1 (launchd), all events source=.process
+
+  - id: REQ-202
+    desc: |
+      Each ForensicEvent emitted by ProcessTreeService must carry:
+        - source: .process
+        - payload.kind: .process
+        - payload.metadata["pid"]: String(pid)
+        - payload.metadata["name"]: process name (from kp_proc.p_comm)
+        - payload.metadata["parentPid"]: String(ppid)
+      Severity is .info for normal processes.
+    priority: must
+    test: unit — verify metadata keys on sample events
+
+  - id: REQ-203
+    desc: |
+      MemoryLogger must conform to CollectionService and be implemented as a
+      Swift actor. It must emit ForensicEvent(source: .memory) continuously
+      at a configurable interval (default: 50ms) via AsyncThrowingStream.
+      The memory provider must be injectable for testability
+      (default: mach task_info / MACH_TASK_BASIC_INFO).
+    priority: must
+    test: unit (mock provider) — verify events emitted at interval with correct metadata
+
+  - id: REQ-204
+    desc: |
+      MemoryLogger must throw ForensicError.memoryLimitExceeded when the
+      observed RSS (resident_size) exceeds the configured ceiling
+      (default: 1,610,612,736 bytes = 1.5 GiB). The stream must finish
+      throwing immediately on the checkpoint where the limit is breached.
+      Events where RSS > 90% of limit are emitted with severity .warning.
+    priority: must
+    test: unit (mock provider with over-limit RSS) — must catch .memoryLimitExceeded
+
+  - id: REQ-205
+    desc: |
+      Both ProcessTreeService and MemoryLogger must satisfy Swift 6 strict
+      concurrency (Sendable). No global mutable state. All mutable state
+      must be actor-isolated. Immutable configuration (let properties) must
+      be accessible nonisolated for use inside nonisolated func stream().
+    priority: must
+    test: swift build — zero concurrency warnings or errors
+
+acceptance_criteria:
+  - "`swift build` succeeds with zero errors and zero warnings"
+  - "`swift test` — all Phase 2 tests green"
+  - "spec-verify.sh reports ALL PASS for REQ-201 through REQ-205"
+  - "ProcessTreeService stream includes pid=1 (launchd) in integration test"
+  - "MemoryLogger throws .memoryLimitExceeded when RSS exceeds limit"
+  - "Zero network calls"
