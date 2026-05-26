@@ -6,5 +6,5 @@ import Testing
 @Test("ForensicKit version is accessible and non-empty")
 func testVersionExists() {
     #expect(ForensicKit.version.isEmpty == false)
-    #expect(ForensicKit.version == "0.4.0-phase4")
+    #expect(ForensicKit.version == "0.5.0-phase5")
 }
