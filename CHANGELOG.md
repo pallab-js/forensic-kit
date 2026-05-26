@@ -8,6 +8,32 @@ All notable changes to ForensicKit follow [Conventional Commits](https://www.con
 
 ---
 
+## [Phase 2] — 2026-05-26
+
+### Added
+- `Sources/ForensicKit/Services/ProcessTreeService.swift` — REQ-201/202: actor-based `sysctl(KERN_PROC_ALL)` snapshot stream; extracts `pid`, `name` (`p_comm`), `parentPid` per process
+- `Sources/ForensicKit/Services/MemoryLogger.swift` — REQ-203/204: actor-based continuous memory monitor via `MACH_TASK_BASIC_INFO`; injectable `MemoryProvider` for tests; 50ms default interval; 1.5GiB ceiling; `.warning` at 90% threshold
+- `Tests/ForensicKitTests/ProcessTreeServiceTests.swift` — 9 tests: not-started guard, integration snapshot, source/kind/metadata/pid=1/numeric-pids/idempotent/stop
+- `Tests/ForensicKitTests/MemoryLoggerTests.swift` — 11 tests: not-started guard, mock provider events, severity thresholds, limit exceeded (type + bytes), stop termination, real `systemMemoryUsage()` smoke test
+
+### Spec Delta
+- `specs/phase-2.yaml` status: `draft` → `verified`
+- REQ-201, REQ-202, REQ-203, REQ-204, REQ-205: ALL PASS
+
+### Commit
+```
+feat(phase-2): ProcessTreeService (sysctl) and MemoryLogger (mach) per spec
+```
+
+### Test Results
+```
+✔ Test run with 48 tests passed after 0.015 seconds.
+```
+
+---
+
+---
+
 ## [Phase 1] — 2026-05-26
 
 ### Added
