@@ -4,23 +4,13 @@
 
 import Darwin
 import Foundation
+import OSLog
 
 /// Enumerates all running macOS processes via `sysctl(KERN_PROC_ALL)` and
 /// emits one `ForensicEvent` per process as a finite `AsyncThrowingStream`.
-///
-/// The stream is a **point-in-time snapshot**: it yields all discovered processes
-/// then finishes. Call `stream()` again to take a new snapshot.
-///
-/// ## Usage
-/// ```swift
-/// let service = ProcessTreeService()
-/// try await service.start()
-/// for try await event in service.stream() {
-///     print(event.payload.metadata["name"] ?? "?")
-/// }
-/// ```
-// SPEC: REQ-201
 public actor ProcessTreeService: CollectionService {
+
+    private static let log = Logger(subsystem: "com.forensickit", category: "process")
 
     // MARK: - CollectionService Identity
 
@@ -114,6 +104,7 @@ public actor ProcessTreeService: CollectionService {
         }
 
         let count = actualSize / MemoryLayout<kinfo_proc>.stride
+        log.debug("captured \(count) process entries from sysctl")
 
         // ── Step 3: Map kinfo_proc → ForensicEvent ──────────────────────────
         return procs.prefix(count).compactMap { kproc -> ForensicEvent? in

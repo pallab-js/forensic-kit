@@ -1,69 +1,157 @@
 # ForensicKit
 
-> macOS forensic data collection framework & CLI tool — built with Swift Package Manager.
+> macOS forensic data collection framework, CLI tool & desktop app — built entirely with Swift Package Manager.
+
+ForensicKit collects live forensic data from a running macOS system: process listings, memory usage snapshots, network interface information, and filesystem directory snapshots with SHA-256 hashing. Results stream as structured `ForensicEvent` objects and can be exported as JSON, Markdown reports, or CSV.
+
+---
+
+## Features
+
+- **Process Tree** — `sysctl(KERN_PROC_ALL)` snapshot of all running processes with PID, name, parent PID
+- **Memory Logger** — continuous memory monitoring via `MACH_TASK_BASIC_INFO` with configurable interval, duration, and alert thresholds
+- **Network Monitor** — `getifaddrs(3)` listing of IPv4, IPv6, and MAC addresses with family classification
+- **File System Scanner** — recursive/non-recursive directory snapshots with size, permissions, dates, and SHA-256 hashing (CryptoKit)
+- **CLI** — `swift-argument-parser` interface with JSON and Markdown report output
+- **Desktop App** — SwiftUI `NavigationSplitView` with live streaming charts, configuration presets, sortable tables, search/filter, and CSV export
+- **96 tests** across all phases — Swift Testing with >0.190s typical runtime
+
+---
 
 ## Requirements
-- **Swift 6.3+** (check: `swift --version`)
-- **macOS 13 Ventura** or later
+
+- **Swift 6.3+** (`swift --version`)
+- **macOS 14+**
 - **No Xcode required**
 
-## Build
+---
+
+## Build & Run
 
 ```bash
-# Resolve dependencies and build
+# Build all targets
 swift build
 
-# Run CLI (placeholder until Phase 5)
+# Run CLI
 swift run forensic-kit
+
+# Run desktop app
+swift run forensic-kit-desktop
 
 # Run all tests
 swift test
+
+# Build release
+swift build -c release
 ```
+
+### Desktop App (macOS .app bundle)
+
+```bash
+# Manual .app bundle
+bash build-app.sh
+```
+
+The script creates `ForensicKit.app` with Info.plist and hardened entitlements. Drag to `/Applications` or run via Finder.
+
+---
 
 ## Project Structure
 
 ```
 forensic-kit/
-├── Package.swift                  # SPM manifest
+├── Package.swift                     # SPM manifest (6 targets)
 ├── Sources/
-│   ├── ForensicKit/               # Core library (phases 1-4)
-│   └── ForensicKitCLI/           # CLI executable (phase 5)
+│   ├── ForensicKit/                  # Core library (models, protocols, services)
+│   │   ├── Models/                   # ForensicEvent, EventPayload
+│   │   ├── Protocols/                # CollectionService protocol
+│   │   ├── Services/                 # ProcessTreeService, MemoryLogger,
+│   │   │                             # NetworkMonitorService, FileSystemService,
+│   │   │                             # CollectionOrchestrator
+│   │   ├── Reporting/               # ForensicReporter (JSON, Markdown)
+│   │   └── Errors/                  # ForensicError
+│   ├── ForensicKitCLI/              # CLI executable (swift-argument-parser)
+│   ├── ForensicKitDesktop/          # Desktop app executable (SwiftUI)
+│   └── ForensicKitDesktopCore/      # Shared library (AppState, Panel, helpers)
 ├── Tests/
-│   └── ForensicKitTests/          # Swift Testing suite
-├── specs/
-│   ├── 00-project-overview.yaml
-│   ├── phase-0.yaml  ✅
-│   ├── phase-1.yaml  (draft)
-│   └── tools/
-│       └── spec-verify.sh         # Local spec validator
-└── CHANGELOG.md
+│   ├── ForensicKitTests/            # Core library tests (79)
+│   └── ForensicKitDesktopTests/     # Desktop app tests (17)
+├── specs/                            # Phase specifications
+│   └── tools/spec-verify.sh          # Spec validator
+├── build-app.sh                      # .app bundling script
+├── CHANGELOG.md
+└── README.md
 ```
 
-## Spec Validation
+---
+
+## CLI Usage
 
 ```bash
-# Validate a phase spec (requires: brew install yamllint)
-bash specs/tools/spec-verify.sh specs/phase-1.yaml --dir Sources/
+# Help
+swift run forensic-kit --help
+
+# Collect all services, output JSON
+swift run forensic-kit --services all --output-format json
+
+# Collect process + network only, generate Markdown report
+swift run forensic-kit --services process,network --output-format markdown --output-path report.md
+
+# File system snapshot with custom options
+swift run forensic-kit --services filesystem --fs-target /tmp/snapshot --no-fs-recursive
+
+# Memory monitoring with custom limits
+swift run forensic-kit --services memory --memory-limit 2048 --memory-interval 100 --memory-duration 30
 ```
 
-## Git Workflow
+---
 
-```
-feat/phase-N  →  dev  →  main
-```
+## Desktop App
 
-Commit format: `<type>(<scope>): <message>`  
-Examples: `feat(process): add ProcessTreeService`, `fix(memory): correct checkpoint interval`
+The SwiftUI desktop app (`forensic-kit-desktop`) provides:
 
-## Git Tag Signing (optional)
+- **Collection View** — service cards with individual toggles, run button with live progress, error banners
+- **Data Views** — sortable tables for Processes, Network, Memory, Filesystem with row counts and search
+- **Live Chart** — real-time memory usage LineMark chart with configurable threshold
+- **Configuration Presets** — 3 built-in presets (Quick Scan, Full Investigation, Memory Only); save/delete custom presets
+- **Inspector** — per-row metadata sheet with Copy buttons
+- **Export** — CSV export per data view via `.fileExporter()`
 
-To use signed tags, configure GPG:
+Uses `@Observable` (iOS 17+ / macOS 14+), `NavigationSplitView`, `Swift Charts`, and `os_log` throughout.
+
+---
+
+## Testing
+
 ```bash
-git config --global user.signingkey <YOUR_KEY_ID>
-git tag -s v0.1.0-alpha -m "Phase 1 complete"
+# Run all tests
+swift test
+
+# Run specific test suite
+swift test --filter "ProcessTreeServiceTests"
+swift test --filter "PresetTests"
+
+# Run with xcodebuild for CI
+xcodebuild test -scheme forensic-kit -destination 'platform=macOS'
 ```
 
-Without signing: `git tag v0.1.0-alpha -m "Phase 1 complete"`
+All tests use Swift Testing (no XCTest). Mocks provided via `MockCollectionService` and `MockMemoryProvider` for deterministic service testing.
+
+---
+
+## Phases
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| 0 | ✅ | SPM scaffold, spec tooling |
+| 1 | ✅ | Core models, protocols, errors (28 tests) |
+| 2 | ✅ | ProcessTreeService, MemoryLogger (48 tests) |
+| 3 | ✅ | NetworkMonitorService (64 tests) |
+| 4 | ✅ | FileSystemService with SHA-256 (73 tests) |
+| 5 | ✅ | CLI, CollectionOrchestrator, Reporter (79 tests) |
+| 6 | ✅ | Desktop app with SwiftUI (96 tests) |
+
+---
 
 ## License
 

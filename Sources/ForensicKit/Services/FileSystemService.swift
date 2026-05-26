@@ -6,6 +6,7 @@
 
 import Foundation
 import CryptoKit
+import OSLog
 
 /// A service that scans a target directory and captures metadata for all discovered files
 /// and directories, including computing SHA-256 hashes of regular files.
@@ -15,9 +16,10 @@ import CryptoKit
 // SPEC: REQ-401
 public actor FileSystemService: CollectionService {
 
+    private static let log = Logger(subsystem: "com.forensickit", category: "filesystem")
+
     // MARK: - Identity and Configuration
 
-    // SPEC: REQ-405 — nonisolated let allows safe access from non-isolated contexts
     public nonisolated let id = "file-system-service"
     public nonisolated let targetPath: String
     public nonisolated let recursive: Bool
@@ -59,11 +61,12 @@ public actor FileSystemService: CollectionService {
         }
 
         isRunning = true
+        Self.log.debug("started target=\(resolved) recursive=\(self.recursive)")
     }
 
-    // SPEC: REQ-401 — stop() implementation
     public func stop() async {
         isRunning = false
+        Self.log.debug("stopped")
     }
 
     // MARK: - CollectionService Streaming
@@ -159,6 +162,7 @@ public actor FileSystemService: CollectionService {
             }
         }
 
+        Self.log.debug("scanned \(events.count) items")
         return events
     }
 

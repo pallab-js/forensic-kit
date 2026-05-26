@@ -6,13 +6,18 @@ import PackageDescription
 let package = Package(
     name: "ForensicKit",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         // Executable CLI tool
         .executable(
             name: "forensic-kit",
             targets: ["ForensicKitCLI"]
+        ),
+        // Desktop SwiftUI app
+        .executable(
+            name: "forensic-kit-desktop",
+            targets: ["ForensicKitDesktop"]
         ),
         // Library target (importable by external packages / tests)
         .library(
@@ -43,6 +48,19 @@ let package = Package(
                 .enableExperimentalFeature("StrictConcurrency")
             ]
         ),
+        // Core library — shared between desktop app and its tests
+        .target(
+            name: "ForensicKitDesktopCore",
+            dependencies: ["ForensicKit"],
+            path: "Sources/ForensicKitDesktopCore"
+        ),
+        // Desktop SwiftUI app (macOS 14+ with @Observable)
+        .executableTarget(
+            name: "ForensicKitDesktop",
+            dependencies: ["ForensicKit", "ForensicKitDesktopCore"],
+            path: "Sources/ForensicKitDesktop",
+            exclude: ["Info.plist", "forensic-kit-desktop.entitlements"]
+        ),
         // CLI executable — thin wrapper over ForensicKit (Phase 5)
         .executableTarget(
             name: "ForensicKitCLI",
@@ -64,6 +82,18 @@ let package = Package(
             swiftSettings: [
                 // Suppress deprecation warning: swift-testing required by SPM
                 // for test discovery even though Swift 6 bundles Testing natively.
+                .unsafeFlags(["-suppress-warnings"])
+            ]
+        ),
+        // Desktop app test suite
+        .testTarget(
+            name: "ForensicKitDesktopTests",
+            dependencies: [
+                "ForensicKitDesktopCore",
+                .product(name: "Testing", package: "swift-testing")
+            ],
+            path: "Tests/ForensicKitDesktopTests",
+            swiftSettings: [
                 .unsafeFlags(["-suppress-warnings"])
             ]
         )

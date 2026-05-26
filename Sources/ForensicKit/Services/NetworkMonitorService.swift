@@ -6,6 +6,7 @@
 
 import Darwin
 import Foundation
+import OSLog
 
 /// Enumerates all network interfaces and their addresses using `getifaddrs(3)` and
 /// emits one `ForensicEvent` per address entry as a finite `AsyncThrowingStream`.
@@ -26,9 +27,10 @@ import Foundation
 // SPEC: REQ-301
 public actor NetworkMonitorService: CollectionService {
 
+    private static let log = Logger(subsystem: "com.forensickit", category: "network")
+
     // MARK: - Identity
 
-    // SPEC: REQ-305 — nonisolated let, accessible without await
     public nonisolated let id = "network-monitor-service"
 
     // MARK: - Actor-Isolated State
@@ -110,6 +112,7 @@ public actor NetworkMonitorService: CollectionService {
             cursor = ifa.pointee.ifa_next
         }
 
+        log.debug("captured \(events.count) interface addresses")
         return events
     }
 

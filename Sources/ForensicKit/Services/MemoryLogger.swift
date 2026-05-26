@@ -4,6 +4,7 @@
 
 import Darwin
 import Foundation
+import OSLog
 
 /// Continuously monitors the current process's memory usage and emits
 /// `ForensicEvent(source: .memory)` at a configurable interval.
@@ -27,15 +28,14 @@ import Foundation
 // SPEC: REQ-203
 public actor MemoryLogger: CollectionService {
 
+    private static let log = Logger(subsystem: "com.forensickit", category: "memory")
+
     // MARK: - Types
 
-    /// A `@Sendable` closure that returns current `(rss, vm)` byte counts.
     public typealias MemoryProvider = @Sendable () throws -> (rss: Int, vm: Int)
 
-    // MARK: - Constants (nonisolated — safe to read from stream() closure)
+    // MARK: - Constants (nonisolated)
 
-    /// Stable service identifier.
-    // SPEC: REQ-205 — nonisolated let
     public nonisolated let id = "memory-logger"
 
     // Immutable configuration — accessible nonisolated in Swift 6
@@ -77,14 +77,14 @@ public actor MemoryLogger: CollectionService {
     public func start() async throws {
         guard !isRunning else { return }
         isRunning = true
+        Self.log.debug("started (limit=\(self.limitBytes) interval=\(self.checkInterval))")
     }
 
-    /// Stops the memory logger and cancels the active stream task.
-    // SPEC: REQ-203 — stop() lifecycle
     public func stop() async {
         isRunning = false
         activeTask?.cancel()
         activeTask = nil
+        Self.log.debug("stopped")
     }
 
     // MARK: - Actor-Isolated Helpers
