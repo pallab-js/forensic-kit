@@ -1,0 +1,64 @@
+id: phase-3
+title: Network Monitoring
+status: active
+
+requirements:
+  - id: REQ-301
+    desc: |
+      NetworkMonitorService must conform to CollectionService and be implemented
+      as a Swift actor. It must enumerate all network interfaces and their
+      addresses using getifaddrs(3) and emit one ForensicEvent per interface
+      address entry as a finite AsyncThrowingStream (stream finishes after
+      the full snapshot is emitted). Zero network calls are made.
+    priority: must
+    test: integration — stream emits at least one event; all source=.network
+
+  - id: REQ-302
+    desc: |
+      Each ForensicEvent emitted by NetworkMonitorService must carry:
+        - source: .network
+        - payload.kind: .network
+        - metadata["interface"]: ifa_name (e.g. "en0", "lo0")
+        - metadata["family"]:    "IPv4" | "IPv6" | "link" | "other"
+        - metadata["address"]:   IP string (inet_ntop) or MAC (colon-hex) or "-"
+        - metadata["isLoopback"]: "true" | "false"
+        - metadata["isUp"]:      "true" | "false"
+        - metadata["flags"]:     hex string of ifa_flags
+      Severity is .info for all interface events.
+    priority: must
+    test: unit — verify all required metadata keys on each emitted event
+
+  - id: REQ-303
+    desc: |
+      NetworkMonitorService must handle all Darwin address families correctly:
+        - AF_INET  (2):  IPv4 address via inet_ntop
+        - AF_INET6 (30): IPv6 address via inet_ntop
+        - AF_LINK  (18): link-layer address (MAC) from sockaddr_dl.sdl_data
+        - Other:         family="other", address="-"
+      Loopback interface lo0 must appear in the snapshot with isLoopback="true".
+    priority: must
+    test: integration — lo0 present and correctly classified; AF_INET entry present
+
+  - id: REQ-304
+    desc: |
+      NetworkMonitorService must call freeifaddrs(3) in all exit paths
+      (success and error) to prevent memory leaks. A defer block must be used
+      immediately after getifaddrs returns successfully.
+    priority: must
+    test: unit — multiple concurrent captureSnapshot() calls must not crash or leak
+
+  - id: REQ-305
+    desc: |
+      NetworkMonitorService must satisfy Swift 6 strict concurrency (Sendable).
+      No global mutable state. All mutable state must be actor-isolated.
+      Immutable let properties must be nonisolated-accessible from stream().
+    priority: must
+    test: swift build — zero concurrency warnings or errors
+
+acceptance_criteria:
+  - "`swift build` succeeds with zero errors and zero warnings"
+  - "`swift test` — all Phase 3 tests green"
+  - "spec-verify.sh reports ALL PASS for REQ-301 through REQ-305"
+  - "lo0 loopback interface is detected with isLoopback=true"
+  - "At least one IPv4 address is present in snapshot"
+  - "Zero network calls (getifaddrs is a local syscall)"
