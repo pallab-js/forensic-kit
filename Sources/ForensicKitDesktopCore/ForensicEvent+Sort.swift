@@ -21,6 +21,7 @@ extension ForensicEvent {
     public var sizeBytesValue: Int64 { Int64(payload.metadata["sizeBytes"] ?? "") ?? 0 }
     public var permissionsValue: String { payload.metadata["permissions"] ?? "" }
     public var sha256Value: String { payload.metadata["sha256"] ?? "" }
+    public var signatureValue: String { payload.metadata["signature"] ?? "" }
 
     public func matchesSearch(_ query: String) -> Bool {
         guard !query.isEmpty else { return true }

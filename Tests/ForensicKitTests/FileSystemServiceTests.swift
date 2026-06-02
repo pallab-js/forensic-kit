@@ -322,3 +322,31 @@ func testFileSystemGracefulTraversalError() async throws {
         #expect(events.contains { $0.payload.metadata["path"] == hiddenFileURL.path } == false)
     }
 }
+
+@Test("FileSystemService captures symbolic links without following them")
+func testFileSystemSymbolicLinks() async throws {
+    try await withTempDirectory { tempURL in
+        let fm = FileManager.default
+
+        let targetFileURL = tempURL.appendingPathComponent("target.txt")
+        try Data("target_contents".utf8).write(to: targetFileURL)
+
+        let symlinkURL = tempURL.appendingPathComponent("symlink.txt")
+        try fm.createSymbolicLink(atPath: symlinkURL.path, withDestinationPath: "target.txt")
+
+        let svc = FileSystemService(targetPath: tempURL.path, recursive: false)
+        try await svc.start()
+
+        var events: [ForensicEvent] = []
+        for try await event in svc.stream() {
+            events.append(event)
+        }
+
+        #expect(events.count == 2)
+
+        let symlinkEvent = try #require(events.first { $0.payload.metadata["path"] == symlinkURL.path })
+        #expect(symlinkEvent.payload.metadata["fileType"] == "symbolicLink")
+        #expect(symlinkEvent.payload.metadata["sha256"] == "-")
+        #expect(symlinkEvent.payload.metadata["destination"] == "target.txt")
+    }
+}

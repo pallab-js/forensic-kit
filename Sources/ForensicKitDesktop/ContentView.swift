@@ -99,75 +99,116 @@ struct CollectionSettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
                 header
                 presetsSection
+                
+                Divider()
+                    .padding(.vertical, 4)
+                
+                Label("Subsystem Collector Services", systemImage: "cpu")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                
                 serviceCards
-                if state.runMemoryService || state.runFileSystemService { optionsSection }
+                
+                Divider()
+                    .padding(.vertical, 4)
+                
+                optionsSection
+                
+                Divider()
+                    .padding(.vertical, 4)
+                
                 runButton
-                if state.hasResults { resultsSummary }
+                
+                if state.hasResults {
+                    resultsSummary
+                }
             }
-            .padding()
+            .padding(24)
         }
     }
 
     // MARK: Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Forensic Collection")
-                .font(.title2.bold())
-            Text("Select services and configure options, then run a collection.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("System Forensic Collector")
+                    .font(.system(.title, design: .rounded).bold())
+                Text("Configure and execute real-time macOS forensic collection services.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            
+            Text("ENTERPRISE EDITION")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.blue)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.blue.opacity(0.1))
+                .clipShape(Capsule())
         }
     }
 
     // MARK: Presets
 
     private var presetsSection: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Presets", systemImage: "bookmark")
-                    .font(.headline.weight(.medium))
-
-                HStack {
-                    Picker("", selection: Bindable(state).selectedPresetID) {
-                        Text("Manual Configuration").tag(nil as AppState.Preset.ID?)
-                        ForEach(state.presets) { preset in
-                            Text(preset.name).tag(preset.id as AppState.Preset.ID?)
-                        }
-                    }
-                    .labelsHidden()
-                    .onChange(of: state.selectedPresetID) { _, newID in
-                        if let id = newID, let preset = state.presets.first(where: { $0.id == id }) {
-                            state.applyPreset(preset)
-                        }
-                    }
-
-                    Button("Save Current…", systemImage: "plus") {
-                        newPresetName = ""
-                        showSavePreset = true
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-
-                    if let id = state.selectedPresetID {
-                        Button("Delete", systemImage: "trash", role: .destructive) {
-                            state.deletePreset(id)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
+        HStack {
+            Label("Audit Configuration Profile:", systemImage: "slider.horizontal.2.gobackward")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+            
+            Picker("", selection: Bindable(state).selectedPresetID) {
+                Text("Custom Configuration").tag(nil as AppState.Preset.ID?)
+                Divider()
+                ForEach(state.presets) { preset in
+                    Text(preset.name).tag(preset.id as AppState.Preset.ID?)
                 }
             }
-            .padding(8)
+            .labelsHidden()
+            .frame(width: 200)
+            .onChange(of: state.selectedPresetID) { _, newID in
+                if let id = newID, let preset = state.presets.first(where: { $0.id == id }) {
+                    state.applyPreset(preset)
+                }
+            }
+            
+            Button(action: {
+                newPresetName = ""
+                showSavePreset = true
+            }) {
+                Label("Save Profile…", systemImage: "plus.circle")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            
+            if let id = state.selectedPresetID {
+                Button(role: .destructive, action: {
+                    state.deletePreset(id)
+                }) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .tint(.red)
+            }
         }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color(.windowBackgroundColor).opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(.separatorColor).opacity(0.3), lineWidth: 1)
+        )
         .sheet(isPresented: $showSavePreset) {
             VStack(spacing: 16) {
-                Text("Save Preset")
+                Text("Save Preset Profile")
                     .font(.headline)
-                TextField("Preset Name", text: $newPresetName)
+                TextField("Profile Name", text: $newPresetName)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 250)
                 HStack {
@@ -192,7 +233,7 @@ struct CollectionSettingsView: View {
     // MARK: Service Cards
 
     private var serviceCards: some View {
-        VStack(spacing: 0) {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
             ForEach(services, id: \.id) { svc in
                 ServiceCardView(
                     icon: svc.icon,
@@ -200,79 +241,122 @@ struct CollectionSettingsView: View {
                     description: svc.description,
                     isOn: Bindable(state)[dynamicMember: svc.bind]
                 )
-                if svc.id != services.last?.id {
-                    Divider().padding(.leading, 52)
-                }
             }
         }
-        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: Options
 
     @ViewBuilder
     private var optionsSection: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 12) {
-                if state.runFileSystemService {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("File System", systemImage: "folder")
-                            .font(.headline.weight(.medium))
-                        HStack {
-                            TextField("Target Path", text: Bindable(state).fsTargetPath)
-                                .monospaced()
-                                .textFieldStyle(.roundedBorder)
-                            Toggle("Recursive", isOn: Bindable(state).fsRecursive)
-                                .fixedSize()
-                        }
-                    }
-                }
-
-                if state.runMemoryService && state.runFileSystemService { Divider() }
-
-                if state.runMemoryService {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("Memory Monitor", systemImage: "memorychip")
-                            .font(.headline.weight(.medium))
-                        HStack(spacing: 16) {
-                            HStack {
-                                Text("Limit:")
-                                TextField("Bytes", value: Bindable(state).memoryLimitBytes, format: .number)
-                                    .frame(width: 100).textFieldStyle(.roundedBorder)
-                                Text("(\(state.memoryLimitBytes / (1024*1024)) MB)")
-                                    .foregroundStyle(.secondary).font(.caption)
-                            }
-                            HStack {
-                                Text("Interval:")
-                                TextField("ms", value: Bindable(state).memoryIntervalMS, format: .number)
-                                    .frame(width: 70).textFieldStyle(.roundedBorder)
-                                Text("ms").foregroundStyle(.secondary).font(.caption)
-                            }
-                            HStack {
-                                Text("Duration:")
-                                TextField("sec", value: Bindable(state).memoryDurationSec, format: .number)
-                                    .frame(width: 70).textFieldStyle(.roundedBorder)
-                                Text("s").foregroundStyle(.secondary).font(.caption)
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Configuration Options", systemImage: "slider.horizontal.3")
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .padding(.bottom, 2)
+            
+            GroupBox {
+                VStack(alignment: .leading, spacing: 16) {
+                    if state.runFileSystemService {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("File System Scan", systemImage: "folder.badge.gearshape")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(Color.accentColor)
+                            
+                            HStack(spacing: 12) {
+                                TextField("Target Path", text: Bindable(state).fsTargetPath)
+                                    .monospaced()
+                                    .textFieldStyle(.roundedBorder)
+                                
+                                Button(action: selectFileSystemPath) {
+                                    Label("Browse…", systemImage: "ellipsis")
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                Toggle("Recursive", isOn: Bindable(state).fsRecursive)
+                                    .toggleStyle(.checkbox)
                             }
                         }
+                        if state.runMemoryService { Divider() }
                     }
-                }
 
-                Divider()
-
-                HStack {
-                    Text("Report Format:")
-                        .font(.headline.weight(.medium))
-                    Picker("", selection: Bindable(state).outputFormat) {
-                        ForEach(AppState.ReportFormat.allCases, id: \.self) { fmt in
-                            Text(fmt.rawValue).tag(fmt)
+                    if state.runMemoryService {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Memory Monitor Settings", systemImage: "memorychip.fill")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(Color.accentColor)
+                            
+                            HStack(spacing: 24) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("RSS Ceiling Limit").font(.caption).foregroundStyle(.secondary)
+                                    HStack {
+                                        TextField("Bytes", value: Bindable(state).memoryLimitBytes, format: .number)
+                                            .frame(width: 110)
+                                            .textFieldStyle(.roundedBorder)
+                                        Text("\((Double(state.memoryLimitBytes) / 1_073_741_824.0), specifier: "%.2f") GiB")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Polling Interval").font(.caption).foregroundStyle(.secondary)
+                                    HStack(spacing: 4) {
+                                        TextField("ms", value: Bindable(state).memoryIntervalMS, format: .number)
+                                            .frame(width: 60)
+                                            .textFieldStyle(.roundedBorder)
+                                        Text("ms").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Log Duration").font(.caption).foregroundStyle(.secondary)
+                                    HStack(spacing: 4) {
+                                        TextField("sec", value: Bindable(state).memoryDurationSec, format: .number)
+                                            .frame(width: 60)
+                                            .textFieldStyle(.roundedBorder)
+                                        Text("s").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
                         }
                     }
-                    .labelsHidden()
-                    .frame(width: 130)
+
+                    if state.runFileSystemService || state.runMemoryService {
+                        Divider()
+                    }
+
+                    HStack {
+                        Label("Export Format", systemImage: "doc.plaintext")
+                            .font(.subheadline.bold())
+                        Spacer()
+                        Picker("", selection: Bindable(state).outputFormat) {
+                            ForEach(AppState.ReportFormat.allCases, id: \.self) { fmt in
+                                Text(fmt.rawValue).tag(fmt)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(width: 200)
+                    }
                 }
+                .padding(12)
             }
-            .padding(8)
+        }
+    }
+
+    private func selectFileSystemPath() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.title = "Select File System Scan Target"
+        
+        if panel.runModal() == .OK {
+            if let url = panel.url {
+                state.fsTargetPath = url.path
+            }
         }
     }
 
@@ -284,35 +368,42 @@ struct CollectionSettingsView: View {
                 HStack(spacing: 8) {
                     if state.isRunning {
                         ProgressView().scaleEffect(0.8).controlSize(.small)
-                        Text("Collecting…")
+                        Text("Collecting Forensic Data…")
                     } else {
-                        Image(systemName: "play.fill").font(.body)
-                        Text("Run Collection").font(.body.weight(.medium))
+                        Image(systemName: "play.shield.fill").font(.body)
+                        Text("Start Audit Collection").font(.body.weight(.bold))
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
             .disabled(state.isRunning || state.activeServiceCount == 0)
             .controlSize(.large)
+            .tint(Color.blue)
 
             if !state.errorMessages.isEmpty {
                 ForEach(state.errorMessages, id: \.self) { err in
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.shield.fill")
                             .foregroundStyle(.red)
+                            .font(.title3)
                         Text(err).foregroundStyle(.red).font(.callout)
                     }
-                    .padding(8)
-                    .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(.red.opacity(0.2), lineWidth: 1)
+                    )
                 }
             }
 
             if state.isRunning {
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.6)
-                    Text("Collecting from \(state.activeServiceCount) service\(state.activeServiceCount == 1 ? "" : "s")…")
+                    Text("Gathering observations from \(state.activeServiceCount) active subsystem\(state.activeServiceCount == 1 ? "" : "s")…")
                         .foregroundStyle(.secondary).font(.callout)
                 }
             }
@@ -323,48 +414,64 @@ struct CollectionSettingsView: View {
 
     @ViewBuilder
     private var resultsSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("Collection Complete", systemImage: "checkmark.circle.fill")
+                Label("Collection Completed Successfully", systemImage: "checkmark.shield.fill")
                     .font(.headline)
                     .foregroundStyle(.green)
                 Spacer()
-                Button("Clear Results", role: .destructive) { state.clearResults() }
-                    .buttonStyle(.borderless)
-                    .controlSize(.small)
+                Button(role: .destructive, action: { state.clearResults() }) {
+                    Label("Clear Results", systemImage: "xmark.circle")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+                .font(.subheadline)
             }
 
-            LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 10) {
-                resultCard(icon: "terminal", label: "Processes", count: state.processEvents.count, panel: .processes)
-                resultCard(icon: "network", label: "Network", count: state.networkEvents.count, panel: .network)
-                resultCard(icon: "memorychip", label: "Memory", count: state.memoryEvents.count, panel: .memory)
-                resultCard(icon: "folder", label: "Filesystem", count: state.filesystemEvents.count, panel: .filesystem)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                resultCard(icon: "terminal.fill", label: "Processes Discovered", count: state.processEvents.count, panel: .processes, color: .purple)
+                resultCard(icon: "network", label: "Interfaces Audited", count: state.networkEvents.count, panel: .network, color: .blue)
+                resultCard(icon: "memorychip.fill", label: "Memory Snapshots", count: state.memoryEvents.count, panel: .memory, color: .orange)
+                resultCard(icon: "folder.fill.badge.gearshape", label: "Files Cataloged", count: state.filesystemEvents.count, panel: .filesystem, color: .teal)
             }
         }
-        .padding()
-        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 10))
+        .padding(16)
+        .background(Color(.windowBackgroundColor).opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.green.opacity(0.3), lineWidth: 1.5)
+        )
     }
 
-    private func resultCard(icon: String, label: String, count: Int, panel: Panel) -> some View {
-        HStack {
+    private func resultCard(icon: String, label: String, count: Int, panel: Panel, color: Color) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundStyle(count > 0 ? Color.accentColor : Color.secondary)
-                .font(.title3)
-            VStack(alignment: .leading, spacing: 1) {
+                .foregroundStyle(count > 0 ? color : Color.secondary)
+                .font(.title2)
+                .frame(width: 32, height: 32)
+                .background(count > 0 ? color.opacity(0.1) : Color.secondary.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            
+            VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(.caption).foregroundStyle(.secondary)
                 Text("\(count)")
-                    .font(.title3.weight(.semibold))
+                    .font(.title3.weight(.bold))
                     .monospacedDigit()
-                    .contentTransition(.numericText())
             }
             Spacer()
             if count > 0 {
-                Button("View") { state.selectedPanel = panel }
+                Button("View Details") { state.selectedPanel = panel }
                     .buttonStyle(.bordered).controlSize(.small)
             }
         }
-        .padding(10)
-        .background(.fill.quinary, in: RoundedRectangle(cornerRadius: 8))
+        .padding(12)
+        .background(Color(.windowBackgroundColor).opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(.separatorColor).opacity(0.2), lineWidth: 1)
+        )
     }
 }
 
@@ -375,27 +482,53 @@ private struct ServiceCardView: View {
     let name: String
     let description: String
     @Binding var isOn: Bool
+    @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name).font(.body.weight(.medium))
-                Text(description).font(.caption).foregroundStyle(.secondary)
+        Button(action: { isOn.toggle() }) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: icon)
+                        .font(.title2)
+                        .foregroundStyle(isOn ? .white : Color.accentColor)
+                        .frame(width: 38, height: 38)
+                        .background(isOn ? Color.accentColor : Color.accentColor.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $isOn)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(height: 32, alignment: .topLeading)
+                }
             }
-
-            Spacer()
-
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .controlSize(.small)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isOn ? Color.accentColor.opacity(0.04) : Color(.windowBackgroundColor).opacity(0.4))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isOn ? Color.accentColor : Color(.separatorColor).opacity(0.5), lineWidth: isOn ? 1.5 : 1)
+            )
+            .shadow(color: Color.black.opacity(isHovered ? 0.05 : 0.01), radius: 4, x: 0, y: 2)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }

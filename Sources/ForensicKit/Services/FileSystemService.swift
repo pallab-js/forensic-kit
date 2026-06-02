@@ -135,8 +135,17 @@ public actor FileSystemService: CollectionService {
                         events.append(event)
                     }
                 } catch {
-                    // SPEC: REQ-404 — skip unreadable files and continue
-                    continue
+                    // SPEC: REQ-404 — skip unreadable files and continue by logging/emitting a warning event
+                    let warningEvent = ForensicEvent(
+                        severity: .warning,
+                        source: .filesystem,
+                        payload: EventPayload(kind: .filesystem, metadata: [
+                            "path": fileURL.path,
+                            "error": error.localizedDescription,
+                            "status": "unreadable"
+                        ])
+                    )
+                    events.append(warningEvent)
                 }
             }
         } else {
@@ -153,8 +162,17 @@ public actor FileSystemService: CollectionService {
                             events.append(event)
                         }
                     } catch {
-                        // SPEC: REQ-404 — skip unreadable files and continue
-                        continue
+                        // SPEC: REQ-404 — skip unreadable files and continue by logging/emitting a warning event
+                        let warningEvent = ForensicEvent(
+                            severity: .warning,
+                            source: .filesystem,
+                            payload: EventPayload(kind: .filesystem, metadata: [
+                                "path": fileURL.path,
+                                "error": error.localizedDescription,
+                                "status": "unreadable"
+                            ])
+                        )
+                        events.append(warningEvent)
                     }
                 }
             } catch {
@@ -173,40 +191,33 @@ public actor FileSystemService: CollectionService {
     private static func makeEvent(from url: URL) throws -> ForensicEvent? {
         let fm = FileManager.default
         let rawPath = url.path
-        let path = resolveRealPath(rawPath)
 
-        // Fetch attributes
-        let attrs: [FileAttributeKey: Any]
-        do {
-            attrs = try fm.attributesOfItem(atPath: path)
-        } catch {
-            // SPEC: REQ-404 — throw to be skipped by the loop
-            throw error
+        var statInfo = Darwin.stat()
+        guard lstat(rawPath, &statInfo) == 0 else {
+            throw ForensicError.collectionFailed("lstat failed for \(rawPath) — errno \(errno)")
         }
 
-        let size = attrs[.size] as? Int64 ?? 0
-        let posixPermissions = attrs[.posixPermissions] as? NSNumber
-        let permVal = posixPermissions?.uint16Value ?? 0
-        // Format permissions as standard 4-digit octal string (e.g. "0644")
-        let permStr = String(format: "%04o", permVal & 0o777)
+        let size = Int64(statInfo.st_size)
+        let permVal = statInfo.st_mode & 0o777
+        let permStr = String(format: "%04o", permVal)
 
-        let modDate = attrs[.modificationDate] as? Date ?? Date(timeIntervalSince1970: 0)
-        let creationDate = attrs[.creationDate] as? Date
+        let modDate = Date(timeIntervalSince1970: Double(statInfo.st_mtimespec.tv_sec) + Double(statInfo.st_mtimespec.tv_nsec) / 1_000_000_000.0)
+        let creationDate = Date(timeIntervalSince1970: Double(statInfo.st_birthtimespec.tv_sec) + Double(statInfo.st_birthtimespec.tv_nsec) / 1_000_000_000.0)
 
         let formatter = ISO8601DateFormatter()
         let modDateStr = formatter.string(from: modDate)
-        let creationDateStr = creationDate.map { formatter.string(from: $0) } ?? "-"
+        let creationDateStr = formatter.string(from: creationDate)
 
-        let typeAttr = attrs[.type] as? FileAttributeType
+        let fileMode = statInfo.st_mode & S_IFMT
         let fileType: String
         var isRegular = false
 
-        if typeAttr == .typeRegular {
+        if fileMode == S_IFREG {
             fileType = "regular"
             isRegular = true
-        } else if typeAttr == .typeDirectory {
+        } else if fileMode == S_IFDIR {
             fileType = "directory"
-        } else if typeAttr == .typeSymbolicLink {
+        } else if fileMode == S_IFLNK {
             fileType = "symbolicLink"
         } else {
             fileType = "other"
@@ -216,7 +227,7 @@ public actor FileSystemService: CollectionService {
         if isRegular {
             // SPEC: REQ-403 — Compute SHA-256 hash using stream-based chunking
             do {
-                sha256Str = try computeSHA256(for: URL(fileURLWithPath: path))
+                sha256Str = try computeSHA256(for: URL(fileURLWithPath: rawPath))
             } catch {
                 // SPEC: REQ-403 — If unreadable or hashing fails, set to "-"
                 sha256Str = "-"
@@ -224,8 +235,8 @@ public actor FileSystemService: CollectionService {
         }
 
         // Build metadata payload
-        let metadata: [String: String] = [
-            "path": path,
+        var metadata: [String: String] = [
+            "path": rawPath,
             "sizeBytes": String(size),
             "permissions": permStr,
             "modificationDate": modDateStr,
@@ -233,6 +244,12 @@ public actor FileSystemService: CollectionService {
             "fileType": fileType,
             "sha256": sha256Str
         ]
+
+        if fileMode == S_IFLNK {
+            if let dest = try? fm.destinationOfSymbolicLink(atPath: rawPath) {
+                metadata["destination"] = dest
+            }
+        }
 
         let payload = EventPayload(kind: .filesystem, metadata: metadata)
 

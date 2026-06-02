@@ -31,8 +31,12 @@ public final class AppState {
 
     private static let presetsKey = "com.forensickit.presets"
 
-    public private(set) var presets: [Preset] = [] {
+    public private(set) var userPresets: [Preset] = [] {
         didSet { savePresets() }
+    }
+
+    public var presets: [Preset] {
+        Preset.builtins + userPresets
     }
     public var selectedPresetID: Preset.ID?
 
@@ -81,17 +85,28 @@ public final class AppState {
         }
 
         public static let builtins: [Preset] = [
-            Preset(name: "Quick System Scan", runProcessService: true, runNetworkService: true),
             Preset(
+                id: UUID(uuidString: "7a1b9fcd-1e5b-43ad-8d96-0f8a927a4198")!,
+                name: "Quick System Scan",
+                runProcessService: true,
+                runNetworkService: true
+            ),
+            Preset(
+                id: UUID(uuidString: "1f8b4c20-74df-419b-a63e-3245bc90fe8f")!,
                 name: "Full Forensic Audit",
-                runProcessService: true, runMemoryService: true,
-                runNetworkService: true, runFileSystemService: true,
+                runProcessService: true,
+                runMemoryService: true,
+                runNetworkService: true,
+                runFileSystemService: true,
                 fsRecursive: true
             ),
             Preset(
+                id: UUID(uuidString: "c9c71b6e-21ef-4a81-9b1b-dcde229a43fe")!,
                 name: "Memory Diagnostic",
-                runProcessService: false, runMemoryService: true,
-                runNetworkService: false, runFileSystemService: false,
+                runProcessService: false,
+                runMemoryService: true,
+                runNetworkService: false,
+                runFileSystemService: false,
                 memoryDurationSec: 5.0
             ),
         ]
@@ -154,26 +169,36 @@ public final class AppState {
             memoryIntervalMS: memoryIntervalMS,
             memoryDurationSec: memoryDurationSec
         )
-        presets.append(preset)
+        userPresets.append(preset)
         selectedPresetID = preset.id
     }
 
     public func deletePreset(_ id: Preset.ID) {
-        presets.removeAll { $0.id == id }
+        userPresets.removeAll { $0.id == id }
         if selectedPresetID == id { selectedPresetID = nil }
     }
 
     private func savePresets() {
-        let data = try? JSONEncoder().encode(presets)
+        let data = try? JSONEncoder().encode(userPresets)
         UserDefaults.standard.set(data, forKey: Self.presetsKey)
     }
 
     private func loadPresets() {
         if let data = UserDefaults.standard.data(forKey: Self.presetsKey),
            let decoded = try? JSONDecoder().decode([Preset].self, from: data) {
-            presets = Preset.builtins + decoded
+            let builtinNames = Preset.builtins.map { $0.name }
+            var uniquePresets: [Preset] = []
+            var seenNames = Set<String>()
+            
+            for preset in decoded {
+                if !builtinNames.contains(preset.name) && !seenNames.contains(preset.name) {
+                    uniquePresets.append(preset)
+                    seenNames.insert(preset.name)
+                }
+            }
+            userPresets = uniquePresets
         } else {
-            presets = Preset.builtins
+            userPresets = []
         }
     }
 
@@ -203,45 +228,13 @@ public final class AppState {
             return
         }
 
-        for service in services {
-            do {
-                try await service.start()
-            } catch {
-                errorMessages.append("Failed to start \(service.id): \(error.localizedDescription)")
-                await stopAll(services)
-                isRunning = false
-                return
-            }
-        }
-
         let memDuration = memoryDurationSec
-        await withTaskGroup(of: Void.self) { [self] group in
-            for service in services {
-                group.addTask {
-                    do {
-                        for try await event in service.stream() {
-                            await MainActor.run { self.events.append(event) }
-                        }
-                    } catch {
-                        await MainActor.run {
-                            self.errorMessages.append("\(service.id): \(error.localizedDescription)")
-                        }
-                    }
-                }
-            }
-
-            if services.contains(where: { $0.id == MemoryLogger.serviceID }) {
-                group.addTask {
-                    try? await Task.sleep(for: .seconds(memDuration))
-                    if let mem = services.first(where: { $0.id == MemoryLogger.serviceID }) {
-                        await mem.stop()
-                    }
-                }
-            }
-        }
-
-        events.sort { $0.timestamp < $1.timestamp }
-        await stopAll(services)
+        let orchestrator = CollectionOrchestrator(services: services)
+        let collectedEvents = await orchestrator.run(memoryDuration: memDuration)
+        let errors = await orchestrator.serviceErrors
+        
+        self.events = collectedEvents
+        self.errorMessages = errors
         isRunning = false
         Self.log.debug("collection finished — \(self.events.count) total event(s)")
     }

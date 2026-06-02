@@ -139,3 +139,10 @@ func testProcessTreeStopPreventsStream() async throws {
     }
     #expect(caughtError == .serviceNotRunning(serviceId: "process-tree-service"))
 }
+
+@Test("ProcessTreeService signatureStatus is correct for current process")
+func testProcessTreeSignatureStatus() {
+    let pid = ProcessInfo.processInfo.processIdentifier
+    let sig = ProcessTreeService.signatureStatus(for: Int32(pid))
+    #expect(sig == "valid" || sig == "unsigned")
+}

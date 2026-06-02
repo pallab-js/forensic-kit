@@ -104,7 +104,8 @@ public struct ForensicReporter: Sendable {
                 let ppid = event.payload.metadata["parentPid"] ?? "-"
                 let name = event.payload.metadata["name"] ?? "unknown"
                 let path = event.payload.metadata["path"] ?? "-"
-                md += "| \(pid) | \(ppid) | `\(name)` | path=\(path) |\n"
+                let sig = event.payload.metadata["signature"] ?? "unsigned"
+                md += "| \(pid) | \(ppid) | `\(name)` | path=\(path), signature=\(sig) |\n"
             }
             md += "\n"
         }
@@ -157,7 +158,9 @@ public struct ForensicReporter: Sendable {
                 let size = event.payload.metadata["sizeBytes"] ?? "0"
                 let hash = event.payload.metadata["sha256"] ?? "-"
                 let path = event.payload.metadata["path"] ?? "-"
-                md += "| \(type.capitalized) | `\(perms)` | \(size) | `\(hash)` | `\(path)` |\n"
+                let dest = event.payload.metadata["destination"]
+                let pathVal = dest != nil ? "\(path) -> \(dest!)" : path
+                md += "| \(type.capitalized) | `\(perms)` | \(size) | `\(hash)` | `\(pathVal)` |\n"
             }
             md += "\n"
         }

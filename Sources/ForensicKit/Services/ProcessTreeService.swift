@@ -5,6 +5,7 @@
 import Darwin
 import Foundation
 import OSLog
+import Security
 
 /// Enumerates all running macOS processes via `sysctl(KERN_PROC_ALL)` and
 /// emits one `ForensicEvent` per process as a finite `AsyncThrowingStream`.
@@ -86,6 +87,31 @@ public actor ProcessTreeService: CollectionService {
         return String(cString: buffer)
     }
 
+    /// Retrieves the code signature status of a process using the macOS Security framework.
+    internal static func signatureStatus(for pid: Int32) -> String {
+        // For special processes like kernel_task or Mock PIDs in tests, Security framework may not check
+        guard pid > 0 else { return "unsigned" }
+        
+        var guest: SecCode?
+        let attributes: [CFString: Any] = [
+            kSecGuestAttributePid: pid
+        ]
+        
+        let status = SecCodeCopyGuestWithAttributes(nil, attributes as CFDictionary, [], &guest)
+        guard status == errSecSuccess, let guestCode = guest else {
+            return "unsigned"
+        }
+        
+        let validityStatus = SecCodeCheckValidity(guestCode, SecCSFlags(rawValue: 0), nil)
+        if validityStatus == errSecSuccess {
+            return "valid"
+        } else if validityStatus == -67062 { // errSecCSUnsigned (-67062)
+            return "unsigned"
+        } else {
+            return "invalid"
+        }
+    }
+
     /// Enumerates all processes using `sysctl(CTL_KERN, KERN_PROC, KERN_PROC_ALL)`.
     ///
     /// This is a `static` (non-isolated) function so it can be called from both
@@ -95,24 +121,45 @@ public actor ProcessTreeService: CollectionService {
     internal static func captureSnapshot() throws -> [ForensicEvent] {
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
 
-        // ── Step 1: Query required buffer size ──────────────────────────────
-        var bufferSize = 0
-        guard sysctl(&mib, 4, nil, &bufferSize, nil, 0) == 0 else {
-            throw ForensicError.collectionFailed(
-                "sysctl size query failed — errno \(errno): \(String(cString: strerror(errno)))"
-            )
+        var procs: [kinfo_proc] = []
+        var actualSize = 0
+        
+        let maxRetries = 3
+        var retryCount = 0
+        var success = false
+        
+        while !success && retryCount < maxRetries {
+            // ── Step 1: Query required buffer size ──────────────────────────────
+            var bufferSize = 0
+            guard sysctl(&mib, 4, nil, &bufferSize, nil, 0) == 0 else {
+                throw ForensicError.collectionFailed(
+                    "sysctl size query failed — errno \(errno): \(String(cString: strerror(errno)))"
+                )
+            }
+            
+            // Add an increasing safety margin per retry (16, 64, 256) to handle process count fluctuations
+            let margin = 16 << (retryCount * 2)
+            let capacity = (bufferSize / MemoryLayout<kinfo_proc>.stride) + margin
+            procs = [kinfo_proc](repeating: kinfo_proc(), count: capacity)
+            actualSize = bufferSize + (margin * MemoryLayout<kinfo_proc>.stride)
+            
+            // ── Step 2: Fetch process data ──────────────────────────────────────
+            if sysctl(&mib, 4, &procs, &actualSize, nil, 0) == 0 {
+                success = true
+            } else {
+                if errno == ENOMEM {
+                    retryCount += 1
+                    log.debug("sysctl failed with ENOMEM, retrying \(retryCount)/\(maxRetries) with larger capacity")
+                } else {
+                    throw ForensicError.collectionFailed(
+                        "sysctl data fetch failed — errno \(errno): \(String(cString: strerror(errno)))"
+                    )
+                }
+            }
         }
-
-        // Add a safety margin: process count can change between calls
-        let capacity = (bufferSize / MemoryLayout<kinfo_proc>.stride) + 16
-        var procs = [kinfo_proc](repeating: kinfo_proc(), count: capacity)
-        var actualSize = bufferSize + (16 * MemoryLayout<kinfo_proc>.stride)
-
-        // ── Step 2: Fetch process data ──────────────────────────────────────
-        guard sysctl(&mib, 4, &procs, &actualSize, nil, 0) == 0 else {
-            throw ForensicError.collectionFailed(
-                "sysctl data fetch failed — errno \(errno): \(String(cString: strerror(errno)))"
-            )
+        
+        guard success else {
+            throw ForensicError.collectionFailed("sysctl data fetch failed after \(maxRetries) retries due to rapid process listing changes.")
         }
 
         let count = actualSize / MemoryLayout<kinfo_proc>.stride
@@ -125,11 +172,10 @@ public actor ProcessTreeService: CollectionService {
 
             // kp_proc.p_comm is a C fixed-length char array (MAXCOMLEN + 1 = 17 bytes)
             var comm = kproc.kp_proc.p_comm
-            let commSize = MemoryLayout.size(ofValue: comm)
-            let name: String = withUnsafeMutablePointer(to: &comm) { ptr in
-                ptr.withMemoryRebound(to: CChar.self, capacity: commSize) { cStr in
-                    String(cString: cStr)
-                }
+            let name: String = withUnsafeBytes(of: &comm) { rawBytes in
+                let cStrBytes = rawBytes.bindMemory(to: CChar.self)
+                let prefix = cStrBytes.prefix(while: { $0 != 0 })
+                return String(decoding: prefix.map { UInt8(bitPattern: $0) }, as: UTF8.self)
             }
 
             // Filter out zombie/empty entries (pid 0 with no name)
@@ -137,12 +183,15 @@ public actor ProcessTreeService: CollectionService {
 
             // SPEC: REQ-202 — full executable path via proc_pidpath
             let execPath = executablePath(for: Int32(pid))
+            
+            // Get code signature status using Apple Security framework
+            let sigStatus = signatureStatus(for: Int32(pid))
 
             // SPEC: REQ-202 — ForensicEvent with source=.process, required metadata
             return ForensicEvent(
                 severity: .info,
                 source: .process,
-                payload: .process(pid: pid, name: name.isEmpty ? "(unknown)" : name, parentPid: ppid, path: execPath)
+                payload: .process(pid: pid, name: name.isEmpty ? "(unknown)" : name, parentPid: ppid, path: execPath, extra: ["signature": sigStatus])
             )
         }
     }
