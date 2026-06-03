@@ -8,13 +8,14 @@ ForensicKit collects live forensic data from a running macOS system: process lis
 
 ## Features
 
-- **Process Tree** — `sysctl(KERN_PROC_ALL)` snapshot of all running processes with PID, name, parent PID
+- **Process Tree** — `sysctl(KERN_PROC_ALL)` snapshot of all running processes (PID, name, parent PID, path) with **automatic code signature verification** using macOS Security framework (detects `valid`, `unsigned`, or `invalid` signatures)
 - **Memory Logger** — continuous memory monitoring via `MACH_TASK_BASIC_INFO` with configurable interval, duration, and alert thresholds
-- **Network Monitor** — `getifaddrs(3)` listing of IPv4, IPv6, and MAC addresses with family classification
-- **File System Scanner** — recursive/non-recursive directory snapshots with size, permissions, dates, and SHA-256 hashing (CryptoKit)
+- **Network Monitor** — `getifaddrs(3)` listing of IPv4, IPv6, and MAC addresses with family classification and safe variable-length address extraction
+- **File System Scanner** — directory snapshots using POSIX `lstat` to capture regular files, directories, and **symbolic links** (records link targets without following them) with SHA-256 integrity hashing
+- **Robust Exception Handling** — emits graceful `.warning` events on streams for unreadable items (e.g. SIP protected files) instead of silently skipping them
 - **CLI** — `swift-argument-parser` interface with JSON and Markdown report output
-- **Desktop App** — SwiftUI `NavigationSplitView` with live streaming charts, configuration presets, sortable tables, search/filter, and CSV export
-- **96 tests** across all phases — Swift Testing with >0.190s typical runtime
+- **Desktop App** — SwiftUI `NavigationSplitView` with live streaming charts, configuration presets, sortable tables with code signature status badges and symlink target visualizations, search/filter, and CSV export
+- **98 tests** across all phases — Swift Testing with >0.190s typical runtime
 
 ---
 
@@ -110,12 +111,12 @@ swift run forensic-kit --services memory --memory-limit 2048 --memory-interval 1
 
 The SwiftUI desktop app (`forensic-kit-desktop`) provides:
 
-- **Collection View** — service cards with individual toggles, run button with live progress, error banners
-- **Data Views** — sortable tables for Processes, Network, Memory, Filesystem with row counts and search
+- **Collection View** — service cards with individual toggles, run button with live progress, real-time error/warning banners, and system health status diagnostics
+- **Data Views** — sortable tables for Processes (featuring colored code signature verification badges), Network, Memory, and Filesystem (featuring symbolic link destination arrows) with row counts and search
 - **Live Chart** — real-time memory usage LineMark chart with configurable threshold
 - **Configuration Presets** — 3 built-in presets (Quick Scan, Full Investigation, Memory Only); save/delete custom presets
-- **Inspector** — per-row metadata sheet with Copy buttons
-- **Export** — CSV export per data view via `.fileExporter()`
+- **Inspector** — per-row metadata sheet with copy buttons and nested raw dictionary views
+- **Export** — CSV export per data view via `.fileExporter()` and plain text / JSON report formatting
 
 Uses `@Observable` (iOS 17+ / macOS 14+), `NavigationSplitView`, `Swift Charts`, and `os_log` throughout.
 
