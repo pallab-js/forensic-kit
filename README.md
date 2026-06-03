@@ -140,20 +140,6 @@ All tests use Swift Testing (no XCTest). Mocks provided via `MockCollectionServi
 
 ---
 
-## Phases
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 0 | ✅ | SPM scaffold, spec tooling |
-| 1 | ✅ | Core models, protocols, errors (28 tests) |
-| 2 | ✅ | ProcessTreeService, MemoryLogger (48 tests) |
-| 3 | ✅ | NetworkMonitorService (64 tests) |
-| 4 | ✅ | FileSystemService with SHA-256 (73 tests) |
-| 5 | ✅ | CLI, CollectionOrchestrator, Reporter (79 tests) |
-| 6 | ✅ | Desktop app with SwiftUI (96 tests) |
-
----
-
 ## License
 
 MIT
